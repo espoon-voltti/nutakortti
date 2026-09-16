@@ -29,7 +29,9 @@ cd admin-frontend && npm install && PORT=3002 npm run dev  # Worker app on :3002
 cd backend
 npm run start:dev    # Watch mode
 npm run build        # Compile TypeScript → dist/
-npm run test         # Jest unit tests
+npm run test         # Jest unit tests; needs a reachable PostgreSQL (docker-compose db,
+                     # or point RDS_HOSTNAME/RDS_PORT elsewhere). Tests use their own
+                     # nuta_test database, dropped clean at every suite start.
 npm run test:watch   # Jest watch
 npm run test:e2e     # E2E tests
 npm run lint         # TSLint
@@ -61,8 +63,8 @@ The Dockerfile builds both React apps first (frontend → `backend/public/`, adm
 Two completely separate SSO flows coexist:
 
 **Suomi.fi SAML** (`backend/src/sso/`) — for youth end-users
-- Uses `saml2-js`; IDP certificates loaded from files in `backend/certs/` at startup (`tunnistus-{test|prod}-1.cer` and `-2.cer`)
-- `CERT_SELECTION` env var (`test` / `prod`) selects which cert set is loaded
+- Uses `saml2-js`; certificates come from env vars: `SUOMIFI_IDP_CERT_<year>` (IdP certs, one per signing-key year), `SP_CERT` (own certificate) and `SP_PKEY` (own private key), all provisioned by nutakortti-infra
+- No certificates are committed to this repo; for local development, files placed in the gitignored `backend/certs/` act as a fallback (`CERT_SELECTION` picks the `test`/`prod` file names — see `backend/certs/README.md`)
 - After ACS callback, a `securityContext` JWT is base64-encoded into a redirect query param; the frontend stores it client-side
 
 **Azure AD SAML** (`backend/src/ad-sso/`) — for youth workers (admins)

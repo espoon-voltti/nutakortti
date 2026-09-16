@@ -49,6 +49,8 @@ describe('AuthenticationService', () => {
     gender: 'M',
     birthday: new Date().toISOString(),
     homeYouthClub: 'Tikkurila',
+    status: 'accepted',
+    photoPermission: false,
   } as RegisterJuniorDto;
   let testLoginJunior: LoginJuniorDto;
 
@@ -98,7 +100,12 @@ describe('AuthenticationService', () => {
     juniorService = module.get<JuniorService>(JuniorService);
 
     await adminService.registerAdmin(testRegisterAdmin);
-    await juniorService.registerJunior(testRegisterJunior);
+    // noSMS: the test environment has no SMS gateway. resetLogin creates the
+    // login challenge before it fails on the missing gateway.
+    await juniorService.registerJunior(testRegisterJunior, true);
+    await juniorService
+      .resetLogin('358' + testRegisterJunior.phoneNumber.slice(1))
+      .catch(() => undefined);
     const juniorChallenge = await juniorService.getChallengeByPhoneNumber(
       testRegisterJunior.phoneNumber,
     );
@@ -110,7 +117,11 @@ describe('AuthenticationService', () => {
 
   afterAll(async () => {
     await module.close();
-    await connection.destroy();
+    // module.close() already destroys the DataSource it was given via
+    // overrideProvider, so only destroy it here if that did not happen.
+    if (connection.isInitialized) {
+      await connection.destroy();
+    }
   });
 
   it('should be defined', () => {
@@ -136,84 +147,14 @@ describe('AuthenticationService', () => {
           expect(e.response === error.getResponse());
         }
       }),
-      it('should throw a Unauthorized if the password is incorrect', async () => {
-        const error = new UnauthorizedException();
-        try {
-          const testData = {
-            email: testLoginAdmin.email,
-            password: 'doubleHush',
-          } as LoginAdminDto;
-          await service.loginAdmin(testData);
-          fail();
-        } catch (e) {
-          expect(e.response === error.getResponse());
-        }
-      }),
-      it('An incorrect login should create a lockout entry; however, loging in succesfully should clear it.', async () => {
-        const newTestAdmin = {
-          email: 'Authentication2@service.test',
-          firstName: 'Forgets',
-          lastName: 'Alot',
-          password: 'Password',
-          isSuperUser: false,
-        } as RegisterAdminDto;
-        const loginTestAdmin = {
-          email: newTestAdmin.email,
-          password: newTestAdmin.password,
+      // Password checks and lockouts are gone from loginAdmin: youth workers
+      // authenticate via AD SSO and loginAdmin only issues the token.
+      it('should not require a correct password', async () => {
+        const testData = {
+          email: testLoginAdmin.email,
+          password: 'doubleHush',
         } as LoginAdminDto;
-        await adminService.registerAdmin(newTestAdmin);
-        const id = (await adminService.getAdminByEmail(loginTestAdmin.email))
-          .id;
-        try {
-          await service.loginAdmin({
-            email: newTestAdmin.email,
-            password: 'DogZ',
-          });
-        } catch (e) {
-          // Expected to fail
-        }
-        const failedAttemptExists = await adminService.getLockoutRecord(id);
-        await service.loginAdmin(loginTestAdmin);
-        const failedAttemptExists2 = await adminService.getLockoutRecord(id);
-        expect(failedAttemptExists && !failedAttemptExists2).toBeTruthy();
-      }),
-      it('Should lock an account after 5 attempts', async () => {
-        const newTestAdmin = {
-          email: 'Authentication3@service.test',
-          firstName: 'Forgets',
-          lastName: 'Alot',
-          password: 'Password',
-          isSuperUser: false,
-        } as RegisterAdminDto;
-        const loginTestAdmin = {
-          email: newTestAdmin.email,
-          password: newTestAdmin.password,
-        } as LoginAdminDto;
-        await adminService.registerAdmin(newTestAdmin);
-        const id = (await adminService.getAdminByEmail(loginTestAdmin.email))
-          .id;
-        let attemptsMatch = true;
-        let lockedOut = false;
-        for (let i = 1; i < 6; i++) {
-          try {
-            await service.loginAdmin({
-              email: newTestAdmin.email,
-              password: 'Safe',
-            });
-          } catch (e) {
-            attemptsMatch =
-              attemptsMatch &&
-              (await adminService.getLockoutRecord(id)).attempts === i;
-          }
-        }
-        try {
-          await service.loginAdmin(loginTestAdmin);
-        } catch (e) {
-          lockedOut = true;
-        }
-        expect(
-          (await adminService.isLockedOut(id)) && attemptsMatch && lockedOut,
-        );
+        expect((await service.loginAdmin(testData)).access_token).toBeDefined();
       });
   });
 

@@ -1,23 +1,302 @@
-name: Docker Build
-
-permissions:
-  contents: read
+name: Build
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
+  schedule:
+    - cron: "30 3 * * 1" # At 03:30 on Monday
+
+env:
+  AWS_REGION: eu-west-1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The default for every job; jobs that push images or assume AWS roles
+# elevate only what they use in their own permissions block.
+permissions:
+  contents: read
 
 jobs:
-  build:
+  lint-shell:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7.0.1
+      - uses: espoon-voltti/voltti-actions/shellcheck@master
+
+  cache-bust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Cache bust"
+        id: cache-bust
+        run: echo "cache-bust=$(date '+%Y-W%V')" >> "$GITHUB_OUTPUT"
+    outputs:
+      cache-bust: ${{ steps.cache-bust.outputs.cache-bust }}
+
+  service:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # pushes to GHCR
+    needs:
+      - cache-bust
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Setup Docker building
+        uses: espoon-voltti/voltti-actions/docker-setup@master
+        with:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS: false
+
+      - name: Build image
+        uses: espoon-voltti/voltti-actions/docker-build-registry@master
+        id: build
+        with:
+          registry: ghcr.io/espoon-voltti
+          name: nutakortti/service
+          path: .
+          build-args: |
+            CACHE_BUST=${{ needs.cache-bust.outputs.cache-bust }}
+
+      - name: Extract frontend builds
+        run: |
+          docker create -ti --name instance "${{ steps.build.outputs.image }}" sh
+          mkdir -p ./build
+          docker cp instance:/backend/public ./build/public
+          docker cp instance:/backend/public-admin ./build/public-admin
+          docker rm -f instance
+
+      - name: Store frontend build
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: frontend
+          path: build
+          retention-days: 3
+
+  proxy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # pushes to GHCR
+    needs:
+      - cache-bust
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Setup Docker building
+        uses: espoon-voltti/voltti-actions/docker-setup@master
+        with:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS: false
+
+      - name: Build image
+        uses: espoon-voltti/voltti-actions/docker-build-registry@master
+        with:
+          registry: ghcr.io/espoon-voltti
+          name: nutakortti/proxy
+          path: ./nginx
+          build-args: |
+            CACHE_BUST=${{ needs.cache-bust.outputs.cache-bust }}
+            build=${{ github.run_number }}
+            commit=${{ github.sha }}
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24.21.0'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Run unit tests
+        run: npm test
+        working-directory: backend
+
+  ecr-push:
+    if: ${{ github.actor != 'dependabot[bot]' && !github.event.pull_request.head.repo.fork }}
+    needs:
+      - service
+      - proxy
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # assumes the AWS role via OIDC
+      packages: read  # pulls the manifests from GHCR
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          role-duration-seconds: 1200
+          mask-aws-account-id: false
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2.1.7
+        with:
+          mask-password: 'true'
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.3.0
 
-      - name: Ensure that the Docker build completes successfully (no push)
-        run: docker build .
+      - name: Copy images from GHCR to ECR
+        env:
+          SHA: "${{ github.event.pull_request.head.sha || github.sha }}"
+          ECR: "${{ steps.ecr.outputs.registry }}"
+        run: |
+          set -euo pipefail
+          for image in service proxy; do
+            src="ghcr.io/espoon-voltti/nutakortti/${image}:${SHA}"
+            dst="${ECR}/nutakortti/${image}:${SHA}"
+            echo "Copying ${src} -> ${dst}"
+            docker buildx imagetools create --prefer-index=false --tag "${dst}" "${src}"
+          done
+
+  install-frontend:
+    if: ${{ github.actor != 'dependabot[bot]' && !github.event.pull_request.head.repo.fork }}
+    needs:
+      - service
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # assumes the AWS role via OIDC
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: # install-suffix because we want to install these without approval
+          - name: staging
+            gh: staging-install
+          - name: prod
+            gh: prod-install
+    environment:
+      name: ${{ matrix.environment.gh }}
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v8.0.0
+        with:
+          name: frontend
+          path: build/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ENVIRONMENT }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install static files
+        run: |
+          aws s3 sync --exact-timestamps ./build/public-admin/ \
+            "s3://nutakortti-static-${{ matrix.environment.name }}/build/${{ github.sha }}/nuorisotyontekijat/"
+
+          aws s3 sync --exact-timestamps ./build/public/ \
+            "s3://nutakortti-static-${{ matrix.environment.name }}/build/${{ github.sha }}/"
+
+  deploy:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs:
+      - test
+      - ecr-push
+      - install-frontend
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # assumes the AWS roles via OIDC
+    strategy:
+      fail-fast: false
+      matrix:
+        environment:
+          - staging
+          - prod
+    environment:
+      name: ${{ matrix.environment }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Retag
+        run: |
+          for repository in service proxy; do
+              if [ "$(aws ecr describe-images --repository-name "nutakortti/$repository" --image-ids imageTag="${{ github.sha }}" | jq -r ".imageDetails[].imageTags | index(\"env-${{ matrix.environment }}\")")" = "null" ]; then
+                  MANIFEST=$(aws ecr batch-get-image --repository-name "nutakortti/$repository" --image-ids imageTag="${{ github.sha }}" --output json | jq --raw-output --join-output '.images[0].imageManifest')
+                  aws ecr put-image --repository-name "nutakortti/$repository" --image-tag "env-${{ matrix.environment }}" --image-manifest "$MANIFEST"
+              else
+                  echo "env-tag on image already exists on nutakortti/$repository"
+              fi
+          done
+
+      - name: Configure AWS credentials (deploy role)
+        uses: aws-actions/configure-aws-credentials@v6.2.4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ENVIRONMENT }}
+          role-duration-seconds: 1200
+          unset-current-credentials: true
+
+      - name: Re-deploy ECS service
+        run: |
+          aws ecs update-service \
+            --cluster "voltti-ecs-cluster-${{ matrix.environment }}-nuta" \
+            --service "nutakortti-service" \
+            --force-new-deployment
+
+      - name: Prepare frontend
+        run: |
+          aws s3 sync \
+            --exact-timestamps \
+            --exclude "*index.html" \
+            "s3://nutakortti-static-${{ matrix.environment }}/build/${{ github.sha }}/" \
+            "s3://nutakortti-static-${{ matrix.environment }}/frontend/"
+
+      - name: Wait for stable
+        run: |
+          aws ecs wait services-stable --cluster="voltti-ecs-cluster-${{ matrix.environment }}-nuta" --services=nutakortti-service
+
+      - name: Install frontend
+        run: |
+          aws s3 sync \
+              --exact-timestamps \
+              --exclude '*' \
+              --include '*index.html' \
+              "s3://nutakortti-static-${{ matrix.environment }}/build/${{ github.sha }}/" \
+              "s3://nutakortti-static-${{ matrix.environment }}/frontend/"
+
+      - if: failure()
+        uses: espoon-voltti/voltti-actions/notify@master
+        with:
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

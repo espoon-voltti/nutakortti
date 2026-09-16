@@ -1,6 +1,6 @@
 {
-  "short_name": "Nutakortti",
-  "name": "Nutakortti",
+  "short_name": "Nuori Espoo jäsenkortti",
+  "name": "Nuori Espoo jäsenkortti",
   "icons": [
     {
       "src": "icons-192.png",
@@ -16,6 +16,6 @@
   "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "rgb(60, 143, 222)",
-  "background_color": "rgb(60, 143, 222)"
+  "theme_color": "rgb(255, 206, 0)",
+  "background_color": "rgb(255, 206, 0)"
 }

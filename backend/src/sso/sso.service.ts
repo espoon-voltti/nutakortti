@@ -9,18 +9,33 @@ import { SAMLHelper } from './samlhelper';
 import { AcsDto, SecurityContextDto } from '../authentication/dto';
 import { AuthenticationService } from '../authentication/authentication.service';
 
-// Read SFI IDP certs from SUOMIFI_IDP_CERT_<year> env vars (injected from SSM).
+// Read SFI IDP certs from SUOMIFI_IDP_CERT_<year> env vars (injected from SSM;
+// the year scheme makes IdP key rollover an infra-only change).
 // saml2-js expects raw base64 — strip PEM headers if present.
-// Falls back to bundled cert files for local development when no env vars are set.
+// Falls back to cert files a developer has placed in certs/ (gitignored) for
+// local development against the Suomi.fi test environment.
 function sfiIdpCerts(certSelection: string): string[] {
   const fromEnv = Object.entries(process.env)
     .filter(([k]) => k.startsWith('SUOMIFI_IDP_CERT_'))
     .map(([, v]) => (v ?? '').replace(/-----[^\n]+-----/g, '').replace(/\s+/g, ''))
     .filter(Boolean);
   if (fromEnv.length > 0) return fromEnv;
-  return [1, 2].map((n) =>
-    fs.readFileSync(`certs/tunnistus-${certSelection}-${n}.cer`).toString().trim(),
-  );
+  return [1, 2]
+    .map((n) => `certs/tunnistus-${certSelection}-${n}.cer`)
+    .filter((path) => fs.existsSync(path))
+    .map((path) => fs.readFileSync(path).toString().trim());
+}
+
+// The service's own certificate: SP_CERT env var (injected by infra), or a
+// locally placed file (gitignored) for development.
+function spCertificate(certSelection: string): string {
+  if (process.env.SP_CERT) {
+    return process.env.SP_CERT.replace(/\\n/g, '\n');
+  }
+  const localFile = `certs/nutakortti-${certSelection}.cer`;
+  return fs.existsSync(localFile)
+    ? fs.readFileSync(localFile).toString()
+    : '';
 }
 
 @Injectable()
@@ -53,9 +68,7 @@ export class SsoService {
       private_key: !!process.env.SP_PKEY
         ? process.env.SP_PKEY.replace(/\\n/g, '\n')
         : pkey,
-      certificate: fs
-        .readFileSync('certs/nutakortti-' + cert_selection + '.cer')
-        .toString(),
+      certificate: spCertificate(cert_selection),
       assert_endpoint:
         process.env.SP_ASSERT_ENDPOINT ||
         'https://api.mobiilinuta-admin-test.com/api/acs',
@@ -74,6 +87,12 @@ export class SsoService {
       certificates: sfiIdpCerts(cert_selection),
     };
     this.idp = new saml2.IdentityProvider(idp_options);
+
+    if (!sp_options.certificate || idp_options.certificates.length === 0) {
+      this.logger.warn(
+        'Suomi.fi SSO is not fully configured (missing SP_CERT or SUOMIFI_IDP_CERT_* certificates); SSO endpoints will fail',
+      );
+    }
 
     this.samlHelper = new SAMLHelper(
       sp_options.private_key,

@@ -69,7 +69,11 @@ describe('AuthenticationService', () => {
 
   afterAll(async () => {
     await module.close();
-    await connection.destroy();
+    // module.close() already destroys the DataSource it was given via
+    // overrideProvider, so only destroy it here if that did not happen.
+    if (connection.isInitialized) {
+      await connection.destroy();
+    }
   });
 
   it('should be defined', () => {
@@ -82,9 +86,16 @@ describe('AuthenticationService', () => {
     const firstName = 'Test1';
     const lastName = 'Test2';
     const zipCode = '12345';
-    let signedString = '';
     const twoHoursAgo = new Date().getTime() / 1000 - 3600 * 2;
     const twoHoursLeft = new Date().getTime() / 1000 + 3600 * 2;
+    // The expiry timestamp is part of the signed string, so it cannot be
+    // swapped on a generated context without invalidating the signature.
+    const signFields = (expiryTime: string) =>
+      sign(
+        `${expiryTime} ${sessionIndex} ${nameId} ${firstName} ${lastName} ${zipCode}`,
+        secretString,
+      );
+    let securityContext: SecurityContextDto;
     it('should generate security context', async () => {
       const acsData = {
         sessionIndex,
@@ -93,46 +104,35 @@ describe('AuthenticationService', () => {
         lastName,
         zipCode,
       } as AcsDto;
-      const expectedSecurityContext = sign(
-        `${sessionIndex} ${nameId} ${firstName} ${lastName} ${zipCode}`,
-        secretString,
+      securityContext = service.generateSecurityContext(acsData);
+      expect(securityContext.signedString).toEqual(
+        signFields(securityContext.expiryTime),
       );
-      signedString = service.generateSecurityContext(acsData).signedString;
-      expect(signedString).toEqual(expectedSecurityContext);
     }),
       it('should validate security context to true ', async () => {
+        expect(service.validateSecurityContext(securityContext)).toEqual(true);
+      }),
+      it('should validate security context to false when expired ', async () => {
+        const expiryTime = twoHoursAgo.toString();
         const scData = {
           sessionIndex,
           nameId,
           firstName,
           lastName,
           zipCode,
-          signedString,
-          expiryTime: twoHoursLeft.toString(),
-        } as SecurityContextDto;
-        expect(service.validateSecurityContext(scData)).toEqual(true);
-      }),
-      it('should validate security context to false when expired ', async () => {
-        const scData = {
-          sessionIndex: '12345',
-          nameId: 'test',
-          firstName,
-          lastName,
-          zipCode,
-          signedString,
-          expiryTime: twoHoursAgo.toString(),
+          signedString: signFields(expiryTime),
+          expiryTime,
         } as SecurityContextDto;
         expect(service.validateSecurityContext(scData)).toEqual(false);
       }),
       it('should validate security context to false when signature wrong ', async () => {
-        signedString = 'test';
         const scData = {
-          sessionIndex: '12345',
-          nameId: 'test',
+          sessionIndex,
+          nameId,
           firstName,
           lastName,
           zipCode,
-          signedString,
+          signedString: 'test',
           expiryTime: twoHoursLeft.toString(),
         } as SecurityContextDto;
         expect(service.validateSecurityContext(scData)).toEqual(false);

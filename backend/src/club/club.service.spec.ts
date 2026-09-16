@@ -12,6 +12,8 @@ import { Club, CheckIn } from './entities';
 import { RegisterJuniorDto } from '../junior/dto';
 import { JuniorService } from '../junior/junior.service';
 import { LogBookDto } from './dto';
+import { LogBookViewModel } from './vm/logbook.vm';
+import { Gender } from '../utils/constants';
 
 describe('ClubService', () => {
   let module: TestingModule;
@@ -20,6 +22,15 @@ describe('ClubService', () => {
   let juniorService: JuniorService;
   const testJuniors: Junior[] = [];
   let testClub: Club;
+
+  // Fixed ages instead of fixed birthdays: the logbook buckets by age range at
+  // the time of the test run, so absolute dates would drift out of their
+  // buckets as years pass.
+  const birthdayYearsAgo = (years: number) => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - years);
+    return date.toISOString();
+  };
 
   beforeAll(async () => {
     connection = await getTestDB();
@@ -48,8 +59,10 @@ describe('ClubService', () => {
       parentsName: 'Auth Senior',
       parentsPhoneNumber: '0411234567',
       gender: 'M',
-      birthday: new Date('05-05-2012').toISOString(),
+      birthday: birthdayYearsAgo(14), // logbook age range 13-15
       homeYouthClub: 'Tikkurila',
+      status: 'accepted',
+      photoPermission: false,
     } as RegisterJuniorDto;
 
     const testRegisterYouth2 = {
@@ -60,8 +73,10 @@ describe('ClubService', () => {
       parentsName: 'Auth Senior',
       parentsPhoneNumber: '0411234567',
       gender: 'M',
-      birthday: new Date('05-05-2005').toISOString(),
+      birthday: birthdayYearsAgo(21), // logbook age range 20-25
       homeYouthClub: 'Tikkurila',
+      status: 'accepted',
+      photoPermission: false,
     } as RegisterJuniorDto;
 
     const testRegisterYouth3 = {
@@ -72,15 +87,21 @@ describe('ClubService', () => {
       parentsName: 'Auth Senior',
       parentsPhoneNumber: '0411234567',
       gender: 'F',
-      birthday: new Date('05-05-2005').toISOString(),
+      birthday: birthdayYearsAgo(21), // logbook age range 20-25
       homeYouthClub: 'Tikkurila',
+      status: 'accepted',
+      photoPermission: false,
     } as RegisterJuniorDto;
 
     juniorService = module.get<JuniorService>(JuniorService);
     service = module.get<ClubService>(ClubService);
-    await juniorService.registerJunior(testRegisterYouth);
-    await juniorService.registerJunior(testRegisterYouth2);
-    await juniorService.registerJunior(testRegisterYouth3);
+    // There is no API for creating clubs; production inserts them straight into
+    // the clubs table (see README), so the test does the same.
+    await connection.getRepository(Club).save({ name: 'Testitalo', postCode: '02130' });
+    // noSMS: the test environment has no SMS gateway, and these juniors never log in.
+    await juniorService.registerJunior(testRegisterYouth, true);
+    await juniorService.registerJunior(testRegisterYouth2, true);
+    await juniorService.registerJunior(testRegisterYouth3, true);
     testJuniors.push(await juniorService.getJuniorByPhoneNumber(testRegisterYouth.phoneNumber));
     testJuniors.push(await juniorService.getJuniorByPhoneNumber(testRegisterYouth2.phoneNumber));
     testJuniors.push(await juniorService.getJuniorByPhoneNumber(testRegisterYouth3.phoneNumber));
@@ -138,34 +159,34 @@ describe('ClubService', () => {
   });
 
   describe('generateLogBook', () => {
+    // The three checked-in juniors: one 14-year-old male, one 21-year-old male,
+    // one 21-year-old female.
+    const verifyLogbookTotals = (logbook: LogBookViewModel) => {
+      const countByGender = (gender: string) =>
+        logbook.statistics.find(s => s.gender === gender).count;
+      expect(countByGender(Gender.Male)).toBe(2);
+      expect(countByGender(Gender.Female)).toBe(1);
+      expect(countByGender(Gender.Other)).toBe(0);
+
+      const ageRangeTotals = new Map<string, number>();
+      logbook.statistics.forEach(s =>
+        s.ageRanges.forEach(r =>
+          ageRangeTotals.set(r.ageRange, (ageRangeTotals.get(r.ageRange) ?? 0) + r.count)));
+      expect(ageRangeTotals.get('13-15')).toBe(1);
+      expect(ageRangeTotals.get('20-25')).toBe(2);
+    };
+
     beforeAll(async () => {
       await service.checkInJunior({ juniorId: testJuniors[2].id, clubId: testClub.id });
     }),
       it('Should return a "logbook" entry containing the correct totals for ages and genders', async () => {
-        const expectedMales = testJuniors.filter(j => j.gender.toLowerCase() === 'm').length;
-        const expectedFemales = testJuniors.filter(j => j.gender.toLowerCase() === 'f').length;
-        const expectedOther = testJuniors.filter(j => j.gender.toLowerCase() === 'o').length;
-
         const logbook = await service.generateLogBook({ clubId: testClub.id, date: new Date().toISOString() });
-        const ageCheck1 = logbook.ages.some(a => a.value === 2);
-        const ageCheck2 = logbook.ages.some(a => a.value === 1);
-        const maleCheck = logbook.genders.some(kp => kp.key === 'm' && kp.value === expectedMales);
-        const femaleCheck = logbook.genders.some(kp => kp.key === 'f' && kp.value === expectedFemales);
-        const otherCheck = logbook.genders.some(kp => kp.key === 'o' && kp.value === expectedOther);
-        expect(ageCheck1 && ageCheck2 && maleCheck && femaleCheck && otherCheck).toBeTruthy();
+        verifyLogbookTotals(logbook);
       }),
       it('Should ignore duplicate check-ins for the given date', async () => {
         await service.checkInJunior({ clubId: testClub.id, juniorId: testJuniors[2].id });
-        const expectedMales = testJuniors.filter(j => j.gender.toLowerCase() === 'm').length;
-        const expectedFemales = testJuniors.filter(j => j.gender.toLowerCase() === 'f').length;
-        const expectedOther = testJuniors.filter(j => j.gender.toLowerCase() === 'o').length;
         const logbook = await service.generateLogBook({ clubId: testClub.id, date: new Date().toISOString() });
-        const ageCheck1 = logbook.ages.some(a => a.value === 2);
-        const ageCheck2 = logbook.ages.some(a => a.value === 1);
-        const maleCheck = logbook.genders.some(kp => kp.key === 'm' && kp.value === expectedMales);
-        const femaleCheck = logbook.genders.some(kp => kp.key === 'f' && kp.value === expectedFemales);
-        const otherCheck = logbook.genders.some(kp => kp.key === 'o' && kp.value === expectedOther);
-        expect(ageCheck1 && ageCheck2 && maleCheck && femaleCheck && otherCheck).toBeTruthy();
+        verifyLogbookTotals(logbook);
       });
   });
 });

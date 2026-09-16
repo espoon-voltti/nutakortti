@@ -1,4 +1,11 @@
-import { Module, NestModule, MiddlewareConsumer, Logger } from '@nestjs/common';
+import {
+  Module,
+  NestModule,
+  MiddlewareConsumer,
+  Logger,
+  Inject,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AppController } from './app.controller';
@@ -69,10 +76,23 @@ const redisClientProvider = {
   ],
   exports: [redisClientProvider],
 })
-export class AppModule implements NestModule {
+export class AppModule implements NestModule, OnApplicationShutdown {
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(RoutersMiddleware).forRoutes('*');
   }
 
-  constructor(private readonly connection: DataSource) {}
+  constructor(
+    private readonly connection: DataSource,
+    @Inject('REDIS_CLIENT') private readonly redisClient: redis.RedisClientType,
+  ) {}
+
+  // The client's reconnect timers otherwise keep the process alive after
+  // app.close() - visible as jest never exiting, and as a slow ECS shutdown.
+  // destroy() throws on a client that never reached the open state (as in
+  // tests, which run without redis and with reconnection disabled).
+  onApplicationShutdown(): void {
+    if (this.redisClient.isOpen) {
+      this.redisClient.destroy();
+    }
+  }
 }

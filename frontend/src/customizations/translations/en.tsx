@@ -4,7 +4,7 @@ import { Translations } from '../types'
 export const translations: Translations = {
   addToHomescreen: <>Click the <i/> icon and choose ”Add to home screen” to add the app</>,
   login: {
-    title: 'Nuta card',
+    title: 'Nuori Espoo membership card',
     label: 'Your phone number',
     placeholder: 'Ex: 05051190912',
     submit: 'Send a new login link',
@@ -16,42 +16,41 @@ export const translations: Translations = {
     }
   },
   logout: {
-    title: 'Nuta card application',
+    title: 'Nuori Espoo membership card application',
     heading: 'Thank you!',
-    message: 'You have now logged out. Thanks for using the service!'
+    message: 'You have now logged out. Thank you for using this service!'
   },
   parentRedirect: {
-    title: 'Applying for a Nuta card',
-    ingress: 'The Nuta card is a free membership card for Vantaa youth clubs that works in mobile devices. Your child uses it to sign in to the youth club.',
+    title: 'Applying for a Nuori Espoo membership card',
+    ingress: 'The Nuori Espoo membership card is a free membership card for Espoo youth centres that works in a mobile device. Your child uses it to sign into a youth centre.',
     description: (
       <p>
-        With this form you can apply for a membeship card of the youth services of the city of Vantaa member for your
-        child or teenager.
-        The card is renewed using the same form for every activity term.
-        Log in with online banking codes, mobile certificate, or identity card and fill the requested information.
+        With this form you can apply for a membership card to the youth services of the city of Espoo for your young person.
+        The card is renewed using the same form for each term.
+        Log in with online banking codes, your mobile certificate, or an e-identity card and fill in the requested information.
         <br/><br/>
-        When the application has been received, we'll call you and send the child a personal login link to the service
+        When the application has been received, we will call you and send your young person a personal login link to the service
         via SMS.
       </p>
     ),
-    submit: 'Fill the application',
+    submit: 'Fill in the application',
     privacyPolicy: {
       title: 'Privacy policy',
-      href: 'https://www.vantaa.fi/hallinto_ja_talous/hallinto/henkilotietojen_kasittely/informointiasiakirjat/nuorisopalveluiden_informointiasiakirja'
+      href: 'https://www.espoo.fi/en/city-and-decision-making/safety/data-protection/privacy-notices-growth-and-learning-sector/privacy-notice-processing-personal-data-espoo-youth-centres-membership-register',
     }
   },
   parentRegistration: {
     logout: 'Log out',
-    title: 'Nuta card application',
+    title: 'Nuori Espoo membership card application',
     form: {
-      juniorHeading: 'Child\'s information',
-      juniorFirstName: 'First name',
+      juniorHeading: 'Young person’s information',
+      juniorFirstName: 'First names',
       juniorLastName: 'Last name',
       juniorNickName: 'Nickname',
       juniorBirthday: 'Date of birth',
       juniorBirthdayPlaceholder: 'dd.mm.yyyy',
       juniorPhoneNumber: 'Phone number',
-      postCode: 'Postal code',
+      postCode: 'Postcode',
       school: 'Name of school',
       class: 'Class',
       juniorGender: 'Gender',
@@ -61,25 +60,25 @@ export const translations: Translations = {
         o: 'Other',
         '-': 'I don\'t want to specify',
       },
-      photoPermission: 'Photographing permit',
-      photoPermissionDescription: 'We take photographs and videos of our activities from time to time for public communications. Pictures can be used in the publications of the youth service (e.g. in social media, web pages and brochures). \nThe picture of my child can be used in public communications of their home city.',
+      photoPermission: 'Consent for photographs',
+      photoPermissionDescription: 'We take photographs and videos intermittently of our activities for public communications. Pictures can be used in the publications of the youth service (e.g. in social media, web pages and brochures). Those who have turned 15 can decide whether to give consent for their images to be used.',
       photoPermissionOptions: {
         y: 'Yes',
         n: 'No',
       },
 
       parentHeading: 'Guardian\'s information',
-      parentFirstName: 'First name',
+      parentFirstName: 'First names',
       parentLastName: 'Last name',
       parentPhoneNumber: 'Phone number',
 
-      youthClubHeading: 'Home youth club',
-      youthClubDefault: 'Choose youth club',
-      youthClubDescription: 'Choose the youth club your child usually visits.',
+      youthClubHeading: 'Local youth centre',
+      youthClubDefault: 'Choose youth centre',
+      youthClubDescription: 'Choose the youth centre your child usually visits.',
 
-      communicationsLanguage: 'Communications language',
+      communicationsLanguage: 'Language of communication',
       communicationsLanguageDefault: 'Choose language',
-      communicationsLanguageDescription: 'Language which the system uses for messages sent to the child (e.g. SMS messages)',
+      communicationsLanguageDescription: 'Language used for communication with the young person',
 
       termsOfUse: (
         <>
@@ -90,36 +89,36 @@ export const translations: Translations = {
       ),
       submit: 'Send application',
       privacyPolicy: {
-        title: 'Read how we handle your personal data.',
-        href: 'https://www.vantaa.fi/hallinto_ja_talous/hallinto/henkilotietojen_kasittely/informointiasiakirjat/nuorisopalveluiden_informointiasiakirja',
+        title: 'How we handle your personal data.',
+        href: 'https://www.espoo.fi/en/city-and-decision-making/safety/data-protection/privacy-notices-growth-and-learning-sector/privacy-notice-processing-personal-data-espoo-youth-centres-membership-register',
       }
     },
     errors: {
       required: 'Fill the information',
-      birthdayFormat: 'Enter the date of birth in format dd.mm.yyyy',
+      birthdayFormat: 'Enter the date of birth in the following format dd.mm.yyyy',
       phoneNumberFormat: 'Check that the phone number you entered is correct',
-      postCodeFormat: 'Check that the postal code you entered is correct',
-      selectYouthClub: 'Choose a youth club from the menu',
+      postCodeFormat: 'Check that the postcode you entered is correct',
+      selectYouthClub: 'Choose a youth centre from the menu',
       selectLanguage: 'Choose a language from the menu',
       acceptTermsOfUse: 'Accept the terms to continue',
     },
     confirmation: {
-      heading: 'Thank you for the application',
+      heading: 'Thank you for your application',
       message: (logoutLink, startOverLink) => (
-        <p>When the child's membership card application has been processed, he or she will be sent a personal log in
+        <p>When the young person’s membership card application has been processed, they will be sent a personal log in
           link via SMS. You can now {logoutLink('log out')} or {startOverLink('start over')} to apply for a card for
-          another child.
+          another young person.
         </p>
       )
     },
     error: {
-      message: 'Something went wrong. If the error recurs often, contact your nearest youth club or the Nuta card contact person, tel. +358 400 662739 (Mon-Fri 8-16).',
+      message: 'Something went wrong. If the error persists, contact your nearest youth centre: https://www.espoo.fi/en/services/youth-centres',
       back: 'Back',
     }
   },
   qrPage: {
     login: 'Login',
-    instruction: 'Show QR code to a reader when entering the youth club.',
+    instruction: 'Show QR code to a reader when entering the youth centre.',
   },
   languages: {
     fi: 'Finnish',

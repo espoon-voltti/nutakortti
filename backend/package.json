@@ -16,11 +16,11 @@
     "start:prod": "node dist/main",
     "lint": "tslint -p tsconfig.json -c tslint.json",
     "lint:fix": "tslint --fix -p tsconfig.json -c tslint.json",
-    "test": "rm -f ./test/testdb.sql || true && set NODE_ENV=test&& jest --runInBand && rm -f ./test/testdb.sql",
+    "test": "NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "set NODE_ENV=test&& jest --config ./test/jest-e2e.json --runInBand && rm -f ./test/testdb.sql"
+    "test:e2e": "NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json --runInBand"
   },
   "dependencies": {
     "@nestjs/axios": "12.0.0",
@@ -97,6 +97,12 @@
       "ts"
     ],
     "rootDir": "src",
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
+    },
+    "setupFiles": [
+      "<rootDir>/../test/setEnv.ts"
+    ],
     "testRegex": ".spec.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"

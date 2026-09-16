@@ -1,3 +1,7 @@
 **/node_modules
 **/build
 **/dist
+
+# Local development key material must never reach an image
+backend/certs/*.pem
+backend/certs/*.cer

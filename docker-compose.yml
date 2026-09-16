@@ -1,4 +1,20 @@
 services:
+  # The production-style entrypoint: proxies /api to the app and static
+  # assets from the staging S3 bucket. Opt in with --profile proxy;
+  # plain `docker-compose up` serves everything from the app on :3000.
+  nginx:
+    build: nginx/
+    profiles: [proxy]
+    ports:
+      - '8080:8080'
+    environment:
+      VOLTTI_ENV: staging
+      BASE_URL: 'http://localhost:8080'
+      RESOLVER: 127.0.0.11
+      SERVICE_URL: 'http://app:3000'
+    depends_on:
+      - app
+
   app:
     init: true
     build:

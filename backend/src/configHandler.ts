@@ -111,6 +111,10 @@ export const toRedisClientOpts = (config: RedisConfig): RedisClientOptions => ({
   socket: {
     host: config.host,
     port: config.port,
+    // Without redis, the client's endless reconnect timers keep the node
+    // event loop alive, which hangs jest after an otherwise green run - and
+    // the tests must run without redis.
+    ...(ConfigHelper.isTest() ? { reconnectStrategy: false as const } : undefined),
     ...(config.disableSecurity
       ? undefined
       : { tls: true, servername: config.tlsServerName }),

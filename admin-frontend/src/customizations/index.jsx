@@ -1,2 +1,2 @@
 // Valid values: 'nickName', 'postCode', 'school', 'class'
-export const hiddenFormFields = []
+export const hiddenFormFields = ['school', 'class']

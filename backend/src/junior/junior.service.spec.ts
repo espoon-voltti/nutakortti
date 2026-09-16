@@ -11,6 +11,7 @@ import { AdminModule } from '../admin/admin.module';
 import { Admin } from '../admin/entities';
 import { ConflictException } from '@nestjs/common';
 import { RegisterJuniorDto, LoginJuniorDto, EditJuniorDto } from './dto';
+import { ListControlDto } from '../common/dto';
 import { Challenge, Junior } from './entities';
 import { SmsModule } from '../sms/sms.module';
 import { HttpModule } from '@nestjs/axios';
@@ -32,7 +33,7 @@ describe('JuniorService', () => {
     gender: 'M',
     birthday: new Date('05-05-2005').toISOString(),
     homeYouthClub: 'Tikkurila',
-    status: 'a',
+    status: 'accepted',
     photoPermission: true,
   } as RegisterJuniorDto;
   let testLoginYouth: LoginJuniorDto;
@@ -40,6 +41,13 @@ describe('JuniorService', () => {
 
   const phoneNumberTransformer = (str: string) =>
     str.charAt(0) === '0' ? str.replace('0', '358') : str;
+
+  // listAllJuniors without pagination controls applies take(0), which typeorm
+  // executes as LIMIT 0 - always page explicitly.
+  const listJuniors = () =>
+    service.listAllJuniors({
+      pagination: { page: 1, perPage: 100 },
+    } as ListControlDto);
 
   beforeAll(async () => {
     connection = await getTestDB();
@@ -77,7 +85,11 @@ describe('JuniorService', () => {
 
   afterAll(async () => {
     await module.close();
-    await connection.destroy();
+    // module.close() already destroys the DataSource it was given via
+    // overrideProvider, so only destroy it here if that did not happen.
+    if (connection.isInitialized) {
+      await connection.destroy();
+    }
   });
 
   it('should be defined', () => {
@@ -86,7 +98,12 @@ describe('JuniorService', () => {
 
   describe('Register Youth', () => {
     beforeAll(async () => {
-      await service.registerJunior(testRegisterYouth);
+      // noSMS: the test environment has no SMS gateway. resetLogin creates the
+      // login challenge before it fails on the missing gateway.
+      await service.registerJunior(testRegisterYouth, true);
+      await service
+        .resetLogin(phoneNumberTransformer(testRegisterYouth.phoneNumber))
+        .catch(() => undefined);
     }),
       it('should return a value (currently challenge data whilst waiting for further workflow)', async () => {
         const challenge = await service.getChallengeByPhoneNumber(
@@ -123,10 +140,10 @@ describe('JuniorService', () => {
   });
 
   describe('Get All Juniors', () => {
-    it('Should return an array containing all juniors', async () => {
-      const response = await service.listAllJuniors();
-      const isAnArray = Array.isArray(response);
-      const containsJuniors = response.some(
+    it('Should return a list containing all juniors', async () => {
+      const response = await listJuniors();
+      const isAnArray = Array.isArray(response.data);
+      const containsJuniors = response.data.some(
         (e) =>
           e.phoneNumber ===
           phoneNumberTransformer(testRegisterYouth.phoneNumber),
@@ -137,22 +154,23 @@ describe('JuniorService', () => {
 
   describe('Edit Junior', () => {
     beforeAll(async () => {
-      juniorToEdit = (await service.listAllJuniors())[0];
+      juniorToEdit = (await listJuniors()).data[0];
     }),
       it(' should change values if valid data is provided', async () => {
         const dto = {
           ...juniorToEdit,
           phoneNumber: '04122345600',
         } as EditJuniorDto;
-        await service.editJunior(dto);
+        // The admin id only gates un-expiring a junior, which this edit is not.
+        await service.editJunior(dto, 'test-admin-id');
         const updatedJunior = await service.getJuniorByPhoneNumber(
           dto.phoneNumber,
         );
-        const updatedList = await service.listAllJuniors();
+        const updatedList = await listJuniors();
         expect(
           updatedJunior.phoneNumber ===
             phoneNumberTransformer(dto.phoneNumber) &&
-            !updatedList.some(
+            !updatedList.data.some(
               (e) =>
                 e.phoneNumber ===
                 phoneNumberTransformer(juniorToEdit.phoneNumber.toLowerCase()),
@@ -164,12 +182,12 @@ describe('JuniorService', () => {
   describe('Delete Junior', () => {
     let juniorToDelete: string;
     beforeAll(async () => {
-      juniorToDelete = (await service.listAllJuniors())[0].id;
+      juniorToDelete = (await listJuniors()).data[0].id;
     }),
       it('Should delete the user provided', async () => {
         await service.deleteJunior(juniorToDelete);
-        const juniorList = await service.listAllJuniors();
-        expect(juniorList.findIndex((j) => j.id === juniorToDelete) < 0);
+        const juniorList = (await listJuniors()).data;
+        expect(juniorList.findIndex((j) => j.id === juniorToDelete) < 0).toBeTruthy();
       });
   });
 });

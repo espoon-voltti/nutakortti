@@ -1,0 +1,56 @@
+name: Cleanup GHCR
+
+on:
+  schedule:
+    # Daily 01:17 UTC: keep only the newest 100 versions per package.
+    - cron: '17 1 * * *'
+    # Sundays 02:17 UTC: keep only the newest version (safety net; deployable images live in ECR).
+    - cron: '17 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Cleanup mode'
+        type: choice
+        options:
+          - keep-100
+          - keep-1
+        default: keep-100
+
+permissions:
+  packages: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  keep-recent:
+    if: ${{ github.event.schedule == '17 1 * * *' || github.event.inputs.mode == 'keep-100' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - nutakortti/service
+          - nutakortti/proxy
+    steps:
+      - uses: espoon-voltti/voltti-actions/ghcr-cleanup@master
+        with:
+          package: ${{ matrix.package }}
+          keep: 100
+
+  keep-one:
+    if: ${{ github.event.schedule == '17 2 * * 0' || github.event.inputs.mode == 'keep-1' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - nutakortti/service
+          - nutakortti/proxy
+    steps:
+      - uses: espoon-voltti/voltti-actions/ghcr-cleanup@master
+        with:
+          package: ${{ matrix.package }}
+          keep: 1

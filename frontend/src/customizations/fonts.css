@@ -1,18 +1,21 @@
 @font-face {
-  font-family: 'GT-Walsheim';
-  src: url('./assets/GT-Walsheim-Regular.ttf') format('opentype');
-  font-weight: 400;
+  font-family: 'Lato';
   font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/Lato-Bold.woff2') format('woff2'),
+       url('./fonts/Lato-Bold.ttf') format('truetype');
 }
 
-
 @font-face {
-  font-family: 'GT-Walsheim';
-  src: url('./assets/GT-Walsheim-Bold.ttf') format('opentype');
-  font-weight: 700;
+  font-family: 'Work Sans';
   font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/WorkSans-Regular.woff2') format('woff2'),
+       url('./fonts/WorkSans-Regular.ttf') format('truetype');
 }
 
 body {
-  font-family: 'GT-Walsheim', sans-serif;
+  font-family: 'Work Sans', sans-serif;
 }

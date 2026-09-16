@@ -55,7 +55,11 @@ describe('AdminService', () => {
 
   afterAll(async () => {
     await module.close();
-    await connection.destroy();
+    // module.close() already destroys the DataSource it was given via
+    // overrideProvider, so only destroy it here if that did not happen.
+    if (connection.isInitialized) {
+      await connection.destroy();
+    }
   });
 
   it('should be defined', () => {
@@ -70,7 +74,7 @@ describe('AdminService', () => {
         response.lastName === testUser.lastName).toBeTruthy();
     }),
       it('Should return undefined if the user does not exist', async () => {
-        expect(await service.getAdminByEmail('Bob')).toBe(undefined);
+        expect(await service.getAdminByEmail('Bob')).toBeNull();
       });
   });
 

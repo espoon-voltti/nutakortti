@@ -1,0 +1,141 @@
+# Hide version information
+server_tokens off;
+
+# DNS resolver in a AWS VPC: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-dns.html
+resolver {{ getenv "RESOLVER" "169.254.169.253" }};
+
+# Helper for cache expiration.
+# Never cache "text/html" as it should always contains references to
+# the latest resources (that can be cached, with their hashed names).
+map $sent_http_content_type $expires {
+  default                    off;
+  text/html                  0;
+  text/css                   max;
+  application/javascript     max;
+  font/woff2                 max;
+  font/ttf                   max;
+  ~image/                    max;
+}
+
+# Map nginx's request_time which is presented in seconds with a millisecond precision ("10.3 format")
+# to milliseconds.
+# 0.000 is a special case for static responses (e.g. health checks)
+# Strip all prefixing zeroes.
+#
+# TODO: This should be done externally from nginx but currently we feed logs directly to Elasticsearch via Functionbeat,
+# so there's nowhere to format logs before ES.
+map $request_time $request_time_ms {
+  "0.000"       0;
+  ~^0\.(0*)(.*) $2;
+  ~(.*)\.(.*)   $1$2;
+}
+
+real_ip_header X-Forwarded-For;
+set_real_ip_from 0.0.0.0/0;
+
+# Rate limiting is the WAF's job: the web ACL in front of the public ALB
+# enforces stricter per-IP limits than these zones did, with the Espoo network
+# ranges whitelisted there (see the waf module in voltti-infra).
+
+# Logging
+
+# Output logs in accordance to Voltti's log schema (type app-requests-received).
+# NOTE: userIdHash cannot easily be computed here, so left empty.
+log_format json_access escape=json
+  '{'
+    '"@timestamp":"$time_iso8601",'
+    '"appBuild":"{{ .Env.APP_BUILD }}",'
+    '"appCommit":"{{ .Env.APP_COMMIT }}",'
+    '"appName":"nutakortti-service",'
+    '"clientIp":"$remote_addr",'
+    '"contentLength":$bytes_sent,'
+    '"env":"{{ .Env.VOLTTI_ENV }}",'
+    '"hostIp":"{{ .Env.HOST_IP }}",'
+    '"httpMethod":"$request_method",'
+    '"path":"$uri",'
+    '"queryString":"$query_string",'
+    '"responseTime":$request_time_ms,'
+    '"statusCode":"$status",'
+    '"type":"app-requests-received",'
+    '"userIdHash":"",'
+    '"version":1'
+  '}';
+
+
+server {
+  set $baseUrl "{{ .Env.BASE_URL }}";
+
+  listen 8080;
+  server_name _;
+  port_in_redirect off;
+
+  access_log /var/log/nginx/access.log json_access;
+
+  # Security
+
+  # Add response headers. N.B. Never use add_header directive in
+  # a location bloc as it overrides the parent headers
+  add_header Strict-Transport-Security 'max-age=31536000; includeSubdomains; preload';
+  add_header X-Content-Type-Options nosniff;
+  add_header X-DNS-Prefetch-Control off;
+  add_header Content-Security-Policy "block-all-mixed-content; upgrade-insecure-requests; form-action 'self'; frame-ancestors 'self'; frame-src 'self'; default-src $baseUrl 'self'; script-src 'unsafe-inline' 'self'; worker-src 'unsafe-inline' 'self' blob:; script-src-elem 'unsafe-inline' 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'";
+
+  # Caching
+
+  # Sets Expires and Cache-Control headers
+  expires       $expires;
+  # Gzipping to minimize network traffic
+  gzip          on;
+  gzip_vary     on;
+  gzip_types    text/plain text/css application/javascript text/xml application/xml image/svg+xml;
+
+  location /health {
+    access_log  off;
+    return      200;
+  }
+
+  set $staticUrl "http://nutakortti-static-{{ .Env.VOLTTI_ENV }}.s3-website-eu-west-1.amazonaws.com";
+  set $serviceUrl "{{ .Env.SERVICE_URL }}";
+
+  location / {
+    try_files @static @service;
+  }
+
+  location @static {
+    proxy_set_header        Authorization '';
+    proxy_hide_header       x-amz-id-2;
+    proxy_hide_header       x-amz-request-id;
+    proxy_hide_header       Set-Cookie;
+    proxy_ignore_headers    Set-Cookie;
+    proxy_redirect          off;
+
+    rewrite    /(.*) /frontend/$1 break;
+    proxy_pass $staticUrl;
+
+    proxy_intercept_errors  on;
+    error_page 403 = /404.html;
+    error_page 404 = /404.html;
+  }
+
+  location @service {
+      proxy_http_version 1.1;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For "$http_x_forwarded_for, $realip_remote_addr";
+      proxy_set_header X-Forwarded-Host $http_host;
+      proxy_set_header X-Original-Forwarded-Proto $http_x_forwarded_proto;
+      proxy_set_header X-Request-ID $request_id;
+      proxy_set_header Connection "";
+
+      # Actual caching headers should be set by downstream API Gateways;
+      # this is just to prevent caching at the proxy level.
+      proxy_no_cache 1;
+
+      proxy_pass $serviceUrl;
+  }
+
+  location = /.well-known/security.txt {
+    default_type text/plain;
+
+    return 200 "Contact: mailto:tietoturva@espoo.fi\nExpires: {{ (time.Now.AddDate 0 9 0).Format "2006-01-02T00:00:00+00:00" }}\n";
+  }
+}

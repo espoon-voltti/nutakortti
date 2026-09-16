@@ -1,93 +1,130 @@
 import React from 'react'
 import { CustomizableFormField, Language, Theme } from './types'
+import espooLogo from './espoo-logo.svg'
+import nuoriEspooLogoYellow from './nuoriespoo-logo-yellow.svg'
+import nuoriEspooLogoBlack from './nuoriespoo-logo-black.svg'
 import styled from 'styled-components'
 
 export const languages: Language[] = ['fi', 'sv', 'en']
-export const hiddenFormFields: CustomizableFormField[] = []
+export const hiddenFormFields: CustomizableFormField[] = ['school', 'class', 'termsOfUse']
 
 const TopLogo = styled(function TopLogo({ className }: { className?: string }) {
-  return <h2 className={className}>Espoo</h2>
+  return <img src={espooLogo} className={className} alt="Espoo logo" />
 })`
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 2rem;
-  font-size: 2em;
-  padding-top: 0.5em;
-  @media (max-width: 450px) {
-    margin-bottom: 3em;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  @media (max-width: 599px) {
+    width: 80px;
   }
-  @media (min-width: 1050px) {
-    font-size: 2.5em;
-    padding-top: 1.5vw;
+  @media (min-width: 600px) {
+    width: 100px;
   }
-`;
+`
+
+const BottomLogo = styled(function BottomLogo({ className }: { className?: string }) {
+  return (
+    <div className={className}>
+      <img src={nuoriEspooLogoYellow} alt="Nuori Espoo logo" />
+    </div>
+  )
+})`
+  position: relative;
+  margin-top: 35px;
+  width: 175px;
+  height: 0;
+
+  > img {
+    position: absolute;
+    width: 100%;
+    margin: 0 auto;
+    top: -10px;
+    left: 0;
+    right: 0;
+  }
+`
+
+const LoginLogo = styled(function LoginLogo({ className }: { className?: string }) {
+  return (
+    <div className={className}>
+      <img src={nuoriEspooLogoBlack} alt="Nuori Espoo logo" />
+    </div>
+  )
+})`
+  margin-top: 50px;
+  display: flex;
+  justify-content: center;
+
+  > img {
+    width: 130px;
+  }
+`
 
 const black = '#000000'
 const white = '#ffffff'
-const darkBlue = '#0042a5'
-const lightBlue = '#84ccf8'
-const mediumBlue = '#3c8fde'
-const yellow = '#f9e51f'
+const espooBlue = 'rgb(36, 159, 255)'
+const espooYellow = 'rgb(255, 206, 0)'
 
 export const theme: Theme = {
   pages: {
     login: {
-      logo: null,
-      stripe1: darkBlue,
-      stripe2: lightBlue,
-      background: mediumBlue,
-      languageSelectText: white,
-      headingText: yellow,
-      messageText: '#99e6ff',
-      errorText: yellow,
-      labelText: white,
-      buttonBackground: yellow,
+      logo: <TopLogo />,
+      stripe1: espooBlue,
+      stripe2: black,
+      background: espooYellow,
+      languageSelectText: black,
+      headingText: black,
+      messageText: black,
+      errorText: black,
+      labelText: black,
+      buttonBackground: espooBlue,
       buttonText: black,
-      bottomLogo: null,
+      bottomLogo: <LoginLogo />,
     },
     qr: {
-      stripe: mediumBlue,
+      stripe: espooYellow,
       background: white,
       languageSelectText: black,
-      headingText: yellow,
-      qrBorder: yellow,
+      headingText: black,
+      qrBorder: espooBlue,
       footerText: black,
     },
     parentRedirect: {
       logo: <TopLogo />,
-      stripe1: mediumBlue,
-      stripe2: darkBlue,
+      stripe1: espooYellow,
+      stripe2: white,
+      languageSelectText: black,
       background: white,
-      languageSelectText: white,
-      headingText: white,
-      ingressText: white,
+      headingText: black,
+      ingressText: black,
       description: {
-        background: yellow,
+        background: espooBlue,
         text: black,
-        buttonBackground: mediumBlue,
-        buttonText: white,
-        bottomLogo: null,
+        buttonBackground: espooYellow,
+        buttonText: black,
+        bottomLogo: <BottomLogo />,
       }
     },
     registration: {
-      stripe: darkBlue,
+      stripe: espooYellow,
       background: white,
-      languageSelectText: white,
-      headingText: yellow,
-      formTitleText: darkBlue,
-      footerBackground: yellow,
-      submitButtonBackground: mediumBlue,
-      submitButtonText: white,
-      errorButtonBackground: mediumBlue,
-      errorButtonText: white,
+      languageSelectText: black,
+      headingText: black,
+      formTitleText: black,
+      footerBackground: espooBlue,
+      submitButtonBackground: espooYellow,
+      submitButtonText: black,
+      errorButtonBackground: espooBlue,
+      errorButtonText: black,
       confirmationBackground: white,
       confirmationTitle: black,
-      confirmationLink: darkBlue,
-      bottomLogo: null,
+      confirmationLink: black,
+      bottomLogo: <BottomLogo />,
     }
   },
   fonts: {
-    heading: "GT-Walsheim, sans-serif",
-    body: "GT-Walsheim, sans-serif",
+    heading: "Lato, sans-serif",
+    body: "'Work Sans', sans-serif",
   }
 }

@@ -4,7 +4,7 @@ import { Translations } from '../types'
 export const translations: Translations = {
   addToHomescreen: <>Klikkaa <i/>-kuvaketta ja valitse ”Lisää Koti-valikkoon” lisätäksesi sovelluksen</>,
   login: {
-    title: 'Nutakortti',
+    title: 'Nuori Espoo jäsenkortti',
     label: 'Puhelinnumerosi',
     placeholder: 'Ex: 05051190912',
     submit: 'Lähetä uusi kirjautumislinkki',
@@ -16,39 +16,36 @@ export const translations: Translations = {
     }
   },
   logout: {
-    title: 'Nutakortti-hakemus',
+    title: 'Nuori Espoo jäsenkortin hakeminen',
     heading: 'Kiitos!',
     message: 'Olet nyt kirjautunut ulos. Kiitos palvelun käytöstä!'
   },
   parentRedirect: {
-    title: 'Nutakortin hakeminen',
-    ingress: 'Nutakortti on maksuton mobiililaitteella toimiva Vantaan nuorisotilojen jäsenkortti, jonka avulla nuori kirjautuu sisään nuorisotilaan.',
+    title: 'Nuori Espoo jäsenkortin hakeminen',
+    ingress: 'Nuori Espoo jäsenkortti on maksuton mobiililaitteella toimiva Espoon nuorisotilojen jäsenkortti, jonka avulla nuori kirjautuu sisään nuorisotilaan.',
     description: (
       <p>
-        Tällä lomakkeella voit huoltajana hakea lapsellesi tai nuorellesi Vantaan
-        kaupungin nuorisopalveluiden jäsenkorttia. Nutakortti uusitaan
+        Tällä lomakkeella voit huoltajana hakea lapsellesi tai nuorellesi Espoon
+        kaupungin nuorisopalveluiden jäsenkorttia. Jäsenkortti uusitaan
         toimintakausittain saman lomakkeen kautta. Kirjaudu sisään pankkitunnuksilla,
         mobiilivarmenteella tai sirullisella henkilökortilla ja täytä pyydetyt tiedot.
         <br/><br/>
         Kun hakemus on vastaanotettu, soitamme sinulle ja lähetämme nuorelle
         tekstiviestillä henkilökohtaisen kirjautumislinkin palveluun.
-        <br/><br/>
-        Käsittelemme hakemuksia jatkuvasti, mutta ruuhka-aikana käsittelyssä saattaa olla viivettä.
-        Nuorisotilalla voi kuitenkin käydä heti hakemuksen täyttämisen jälkeen.
       </p>
     ),
     submit: 'Täytä hakemus',
     privacyPolicy: {
       title: 'Tietosuojaseloste',
-      href: 'https://www.vantaa.fi/fi/kaupunki-ja-paatoksenteko/selosteet-oikeudet-ja-tietosuoja/henkilotietojen-kasittely/henkilotietojen-kasittely-nuorisotyossa-ja-toiminnassa'
+      href: 'https://www.espoo.fi/fi/espoon-kaupunki/tietosuojaselosteet/kasvun-ja-oppimisen-toimialan-tietosuojaselosteet/tietosuojaseloste-henkilotietojen-kasittely-espoon-nuorisotilojen-jasenrekisteri',
     }
   },
   parentRegistration: {
     logout: 'Kirjaudu ulos',
-    title: 'Nutakortti-hakemus',
+    title: 'Nuori Espoo jäsenkortin hakemus',
     form: {
       juniorHeading: 'Nuoren tiedot',
-      juniorFirstName: 'Etunimi',
+      juniorFirstName: 'Etunimet',
       juniorLastName: 'Sukunimi',
       juniorNickName: 'Kutsumanimi',
       juniorBirthday: 'Syntymäaika',
@@ -65,14 +62,14 @@ export const translations: Translations = {
         '-': 'En halua määritellä',
       },
       photoPermission: 'Kuvauslupa',
-      photoPermissionDescription: 'Valokuvaamme ja videoimme ajoittain toimintaamme ja nuoria viestintää varten. Kuvia voidaan käyttää Nuorisopalveluiden julkaisuissa (esim. sosiaalisessa mediassa, nettisivuilla ja esitteissä). \nLapseni kuvaa saa käyttää lapsen asuinkaupungin viestinnässä.',
+      photoPermissionDescription: 'Valokuvaamme ja videoimme ajoittain toimintaamme ja nuorta viestintää varten. Kuvia käytetään Espoon nuorisopalveluiden julkaisuissa (esim. sosiaalisessa mediassa, verkkosivuilla ja esitteissä). 15 vuotta täyttänyt saa itse päättää kuvausluvan antamisesta.',
       photoPermissionOptions: {
         y: 'Kyllä',
         n: 'Ei',
       },
 
       parentHeading: 'Huoltajan tiedot',
-      parentFirstName: 'Etunimi',
+      parentFirstName: 'Etunimet',
       parentLastName: 'Sukunimi',
       parentPhoneNumber: 'Puhelinnumero',
 
@@ -82,17 +79,18 @@ export const translations: Translations = {
 
       communicationsLanguage: 'Kommunikaatiokieli',
       communicationsLanguageDefault: 'Valitse kieli',
-      communicationsLanguageDescription: 'Kieli, jota järjestelmä käytettää viestinnässä nuoren kanssa (esim. tekstiviestit)',
+      communicationsLanguageDescription: 'Kieli, jota järjestelmä käyttää viestinnässä nuoren kanssa (esim. tekstiviestit)',
 
       termsOfUse: (
         <>
-          Hyväksyn&nbsp;<a target='_blank' rel="noopener noreferrer" href='https://www.vantaa.fi/sites/default/files/document/Mobiilinutakortin%20k%C3%A4ytt%C3%B6ehdot%202022pdf.pdf'>käyttöehdot</a>
+          Hyväksyn&nbsp;<a target='_blank' rel="noopener noreferrer"
+          href='https://www.vantaa.fi/instancedata/prime_product_julkaisu/vantaa/embeds/vantaawwwstructure/150593_Mobiilinutakortin_kayttoehdot.pdf'>käyttöehdot</a>
         </>
       ),
       submit: 'Lähetä hakemus',
       privacyPolicy: {
         title: 'Lue tarkemmin, kuinka käsittelemme tietojasi.',
-        href: 'https://www.vantaa.fi/hallinto_ja_talous/hallinto/henkilotietojen_kasittely/informointiasiakirjat/nuorisopalveluiden_informointiasiakirja',
+        href: 'https://www.espoo.fi/fi/espoon-kaupunki/tietosuojaselosteet/kasvun-ja-oppimisen-toimialan-tietosuojaselosteet/tietosuojaseloste-henkilotietojen-kasittely-espoon-nuorisotilojen-jasenrekisteri',
       }
     },
     errors: {
@@ -108,18 +106,14 @@ export const translations: Translations = {
       heading: 'Kiitos hakemuksestasi!',
       message: (logoutLink, startOverLink) => (
         <p>Kun nuoren jäsenkorttihakemus on käsitelty, hänelle lähetetään tekstiviestillä henkilökohtainen
-          kirjautumislinkki palveluun.
-          <br/><br/>
-          Käsittelemme hakemuksia jatkuvasti, mutta ruuhka-aikana käsittelyssä saattaa olla viivettä.
-          Nuorisotilalla voi kuitenkin käydä heti hakemuksen täyttämisen jälkeen.
-          <br/><br/>
-          Voit nyt{' '}{logoutLink('kirjautua ulos')} tai{' '}{startOverLink('aloittaa alusta')} rekisteröidäksesi
-          nutakortin toiselle lapselle.
+          kirjautumislinkki palveluun. Voit
+          nyt{' '}{logoutLink('kirjautua ulos')} tai{' '}{startOverLink('aloittaa alusta')} rekisteröidäksesi jäsenkortin
+          toiselle lapselle.
         </p>
       )
     },
     error: {
-      message: 'Jokin meni pieleen. Jos virhe toistuu useasti, ole yhteydessä lähinuorisotilaasi tai Mobiilinutakortin yhteyshenkilöön p. +358 400 662739 (virka-aikana).',
+      message: 'Jokin meni pieleen. Jos virhe toistuu useasti, ole yhteydessä lähinuorisotilaasi: https://www.espoo.fi/fi/palvelut/nuorisotilat',
       back: 'Takaisin',
     }
   },

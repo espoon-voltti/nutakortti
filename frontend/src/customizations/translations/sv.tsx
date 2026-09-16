@@ -4,43 +4,43 @@ import { Translations } from '../types'
 export const translations: Translations = {
   addToHomescreen: <>Klicka på ikonen <i/> och välj ”Lägg till på startskärmen” för att lägga till appen</>,
   login: {
-    title: 'Nutakort',
+    title: 'Nuori Espoo medlemskort',
     label: 'Ditt telefonnummer',
     placeholder: 'T.ex. 05051190912',
     submit: 'Skicka en ny inloggningslänk',
     errorMessage: 'Kontrollera att telefonnumret är giltigt',
     authMessages: {
       authFail: 'Inloggningen misslyckades. Ange ditt telefonnummer för att få en ny inloggningslänk',
-      linkRequestSuccess: 'En ny länk skickades till numret du angav',
+      linkRequestSuccess: 'En ny länk skickades till numret du gav',
       linkRequestFail: 'Länksändningen misslyckades, försök igen',
     }
   },
   logout: {
-    title: 'Nutakortansökan',
+    title: 'Nuori Espoo medlemkortansökan',
     heading: 'Tack!',
-    message: 'Du har nu loggat ut. Tack för att du använder tjänsten!'
+    message: 'Du har nu loggat ut. Tack för att du använde tjänsten!'
   },
   parentRedirect: {
-    title: 'Ansökning om Nuta kort',
-    ingress: 'Nutakortet är ett gratis medlemskort för Vanda ungdomsklubbar som fungerar i mobila enheter. Din ungdom använder det för att logga in på ungdomsklubben.',
+    title: 'Ansökning om Nuori Espoo medlemkort',
+    ingress: 'Nuori Espoo medlemskort är ett gratis medlemskort för Esbo ungdomslokaler som fungerar på din mobil. Din ungdom använder det för att logga in på ungdomslokalen.',
     description: (
       <p>
-        Med det här formuläret kan du ansöka om ett medlemskort för ungdomstjänsten i Vanda stads medlem för din ungdom.
-        Kortet förnyas med samma formulär för varje aktivitetstermin. Logga in med nätbankskoder,
+        Med detta formulär kan du ansöka om ett medlemskort för ungdomstjänsten i Esbo stad till din ungdom.
+        Kortet förnyas med samma formulär för varje termin. Logga in med nätbankskoder,
         mobilcertifikat eller identitetskort och fyll i den begärda informationen.
         <br/><br/>
-        När ansökan har kommit in ringer vi dig och skickar undomen en personlig inloggningslänk till tjänsten via SMS.
+        När ansökan har kommit in ringer vi dig och skickar ungdomen en personlig inloggningslänk till tjänsten via SMS.
       </p>
     ),
-    submit: 'Fylla i ansökan',
+    submit: 'Fyll i ansökan',
     privacyPolicy: {
       title: 'Integritetspolicy',
-      href: 'https://www.vantaa.fi/hallinto_ja_talous/hallinto/henkilotietojen_kasittely/informointiasiakirjat/nuorisopalveluiden_informointiasiakirja'
+      href: 'https://www.espoo.fi/sv/esbo-stad/dataskydd/dataskyddsbeskrivningar-sektorn-fostran-och-larande/dataskyddsbeskrivning-behandling-av-personuppgifter-medlemsregistret-ungdomslokalerna-i-esbo',
     }
   },
   parentRegistration: {
     logout: 'Logga ut',
-    title: 'Nutakortansökan',
+    title: <>Nuori Espoo medlemskort&shy;ansökan</>,
     form: {
       juniorHeading: 'Ungdomens information',
       juniorFirstName: 'Förnamn',
@@ -60,25 +60,24 @@ export const translations: Translations = {
         '-': 'Jag vill inte specificera',
       },
       photoPermission: 'Fotograferingstillstånd',
-      photoPermissionDescription: 'Vi fotograferar och filmar vår verksamhet då och då för offentlig kommunikation. Bilder kan användas i ungdomstjänstens publikationer (t.ex. i sociala medier, webbsidor och broschyrer).\n' +
-        'Bilden av min ungdom kan användas i offentlig kommunikation av deras hemstad.',
+      photoPermissionDescription: 'Vi fotograferar och filmar vår verksamhet då och då för allmän kommunikation. Bilder kan användas i ungdomstjänstens publikationer (t.ex. i sociala medier, webbsidor och broschyrer). De som har fyllt 15 år kan själva bestämma om de tillåter fotografering.',
       photoPermissionOptions: {
         y: 'Ja',
         n: 'Nej',
       },
 
       parentHeading: 'Vårdnadshavares information',
-      parentFirstName: 'Förnamn',
+      parentFirstName: 'Alla förnamn',
       parentLastName: 'Efternamn',
       parentPhoneNumber: 'Telefonnummer',
 
-      youthClubHeading: 'Hemungdomskulbb',
-      youthClubDefault: 'Välj ungdomskulbb',
-      youthClubDescription: 'Välj den ungdomsklubb din ungdom brukar besöka.',
+      youthClubHeading: 'Hemungdomslokal',
+      youthClubDefault: 'Välj ungdomslokal',
+      youthClubDescription: 'Välj den ungdomslokal din ungdom brukar besöka.',
 
       communicationsLanguage: 'Kommunikationsspråk',
       communicationsLanguageDefault: 'Välj språk',
-      communicationsLanguageDescription: 'Språk som systemet använder för meddelanden som skickas till ungdomen (t.ex. SMS-meddelanden)',
+      communicationsLanguageDescription: 'Språket som används för meddelanden som skickas till ungdomen (t.ex. SMS-meddelanden)',
 
       termsOfUse: (
         <>
@@ -89,15 +88,15 @@ export const translations: Translations = {
       submit: 'Skicka ansökan',
       privacyPolicy: {
         title: 'Läs hur vi hanterar dina personuppgifter.',
-        href: 'https://www.vantaa.fi/hallinto_ja_talous/hallinto/henkilotietojen_kasittely/informointiasiakirjat/nuorisopalveluiden_informointiasiakirja',
+        href: 'https://www.espoo.fi/sv/esbo-stad/dataskydd/dataskyddsbeskrivningar-sektorn-fostran-och-larande/dataskyddsbeskrivning-behandling-av-personuppgifter-medlemsregistret-ungdomslokalerna-i-esbo',
       }
     },
     errors: {
       required: 'Fyll i informationen',
       birthdayFormat: 'Ange födelsedatum i formatet dd.mm.åååå',
-      phoneNumberFormat: 'Kontrollera att telefonnumret du angav är korrekt',
-      postCodeFormat: 'Kontrollera att postnumret du angav är korrekt',
-      selectYouthClub: 'Välj en ungdomsklubb från menyn',
+      phoneNumberFormat: 'Kontrollera att telefonnumret du gav är korrekt',
+      postCodeFormat: 'Kontrollera att postnumret du gav är korrekt',
+      selectYouthClub: 'Välj en ungdomslokal från menyn',
       selectLanguage: 'Välj ett språk från menyn',
       acceptTermsOfUse: 'Acceptera villkoren för att fortsätta',
     },
@@ -111,13 +110,13 @@ export const translations: Translations = {
       )
     },
     error: {
-      message: 'Något gick fel. Om felet återkommer ofta, kontakta din närmaste ungdomsklubb eller Nutakortets kontaktperson, tel. +358 400 662739 (mån-fre 8-16).',
+      message: 'Något gick fel. Om felet återkommer, kontakta din närmaste ungdomslokal: https://www.espoo.fi/sv/tjanster/ungdomslokaler',
       back: 'Tillbaka',
     }
   },
   qrPage: {
     login: 'Logga in',
-    instruction: 'Visa QR-kod för en läsare vid inträde i ungdomsklubben.',
+    instruction: 'Visa QR-kod för en läsare vid inträde i ungdomslokalen.',
   },
   languages: {
     fi: 'finska',

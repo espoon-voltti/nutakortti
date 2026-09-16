@@ -11,7 +11,10 @@ async function bootstrap() {
   // This is for local development only.
   // In test and production environments the HTTPS is provided by a separate AWS load balancer.
   let httpsOptions = null;
-  if (fs.existsSync('./certs/nutakortti-test_private_key.pem')) {
+  if (
+    fs.existsSync('./certs/nutakortti-test_private_key.pem') &&
+    fs.existsSync('./certs/nutakortti-test.cer')
+  ) {
     httpsOptions = {
       key: fs.readFileSync('./certs/nutakortti-test_private_key.pem'),
       cert: fs.readFileSync('./certs/nutakortti-test.cer'),
