@@ -88,7 +88,11 @@ export class AppModule implements NestModule, OnApplicationShutdown {
 
   // The client's reconnect timers otherwise keep the process alive after
   // app.close() - visible as jest never exiting, and as a slow ECS shutdown.
+  // destroy() throws on a client that never reached the open state (as in
+  // tests, which run without redis and with reconnection disabled).
   onApplicationShutdown(): void {
-    this.redisClient.destroy();
+    if (this.redisClient.isOpen) {
+      this.redisClient.destroy();
+    }
   }
 }
