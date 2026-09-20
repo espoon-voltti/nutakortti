@@ -75,7 +75,7 @@
     "@types/cookie-parser": "1.4.10",
     "@types/cron": "2.4.3",
     "@types/jest": "30.0.0",
-    "@types/node": "24.13.4",
+    "@types/node": "24.13.5",
     "@types/passport-jwt": "4.0.1",
     "@types/prettier": "3.0.0",
     "@types/supertest": "7.2.1",
