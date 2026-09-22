@@ -111,7 +111,7 @@
     "testEnvironment": "node"
   },
   "overrides": {
-    "multer": "2.3.0",
+    "multer": "2.4.0",
     "saml2-js": {
       "xmlbuilder2": {
         "js-yaml": "3.15.2"
