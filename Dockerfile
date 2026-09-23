@@ -45,4 +45,4 @@ COPY --from=build /backend/public-admin ./public-admin
 COPY --from=build /backend/certs ./certs
 
 EXPOSE 3000
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/main"]

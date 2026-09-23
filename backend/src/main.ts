@@ -63,5 +63,12 @@ async function bootstrap() {
   SwaggerModule.setup('api/swagger', app, document);
 
   await app.listen(process.env.APPLICATION_PORT || 3000);
+
+  // SIGINT and SIGTERM are deliberate shutdowns, not errors.
+  const shutdown = () => {
+    void app.close().finally(() => process.exit(0));
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 bootstrap();
