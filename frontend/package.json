@@ -59,7 +59,7 @@
   },
   "overrides": {
     "underscore": "1.13.8",
-    "serialize-javascript": "7.1.1",
+    "serialize-javascript": "7.1.2",
     "resolve-url-loader": "5.0.0",
     "@svgr/plugin-svgo": {
       "svgo": "2.8.4"
