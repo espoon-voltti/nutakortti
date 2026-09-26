@@ -19,7 +19,7 @@
     "uifx": "2.0.7"
   },
   "devDependencies": {
-    "typescript-eslint": "8.70.0",
+    "typescript-eslint": "8.70.1",
     "@eslint-react/eslint-plugin": "5.19.1",
     "@eslint/js": "10.0.1",
     "eslint": "10.10.0",
