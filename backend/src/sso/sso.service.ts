@@ -245,13 +245,11 @@ export class SsoService {
         },
       );
     } else {
-      // NOTE: we don't probably have to care about nonsuccessful status at all but here goes anyway.
+      // Suomi.fi answers UnknownPrincipal once its own session has expired, which
+      // is the usual case by the time a user logs out. The user ends up logged out
+      // either way, so report it and redirect instead of failing the request.
       if (!this.samlHelper.checkLogoutResponse(req.url)) {
-        this._handleError(
-          new Error('Suomi.fi returned nonsuccessful logout status.'),
-          res,
-        );
-        return;
+        this.logger.warn('Suomi.fi returned nonsuccessful logout status.');
       }
 
       res.redirect(`${this.frontend_base_url}/uloskirjaus`);
