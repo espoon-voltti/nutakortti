@@ -32,7 +32,7 @@
     "@nestjs/platform-express": "11.2.6",
     "@nestjs/platform-socket.io": "11.2.6",
     "@nestjs/schedule": "12.0.2",
-    "@nestjs/swagger": "11.4.7",
+    "@nestjs/swagger": "12.0.2",
     "@nestjs/typeorm": "12.0.2",
     "@node-saml/node-saml": "5.1.0",
     "@node-saml/passport-saml": "5.1.1",
