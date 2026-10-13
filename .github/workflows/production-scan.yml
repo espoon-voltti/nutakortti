@@ -46,13 +46,13 @@ jobs:
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
-          mkdir results
+          mkdir scan-results
           for image in $IMAGES; do
             for tag in env-prod master; do
               docker pull --quiet "$REGISTRY/$image:$tag"
               docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -w /work "$TRIVY" \
                 image --scanners vuln --ignore-unfixed --no-progress --quiet --format json \
-                --output "results/$tag-${image//\//-}.json" "$REGISTRY/$image:$tag"
+                --output "scan-results/$tag-${image//\//-}.json" "$REGISTRY/$image:$tag"
             done
           done
 
@@ -61,7 +61,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          commit=$(jq -r '.Metadata.ImageConfig.config.Labels["fi.espoo.commit"] // empty' results/env-prod-*.json | sort -u | head -1)
+          commit=$(jq -r '.Metadata.ImageConfig.config.Labels["fi.espoo.commit"] // empty' scan-results/env-prod-*.json | sort -u | head -1)
           if [ -z "$commit" ]; then
             commit=$(gh api graphql -f owner="${GITHUB_REPOSITORY%/*}" -f name="${GITHUB_REPOSITORY#*/}" -f environment="$PRODUCTION_ENVIRONMENT" -f query='
               query($owner: String!, $name: String!, $environment: String!) {
@@ -85,7 +85,7 @@ jobs:
               git archive FETCH_HEAD "$directory" | tar -x -C "sources-$tag"
               docker run --rm -v "$PWD:/work" -w /work "$TRIVY" \
                 fs --scanners vuln --ignore-unfixed --quiet --format json \
-                --output "results/$tag-lockfile-${directory//\//-}.json" "sources-$tag/$directory"
+                --output "scan-results/$tag-lockfile-${directory//\//-}.json" "sources-$tag/$directory"
             done
           done
 
@@ -101,8 +101,8 @@ jobs:
           }
           count() { jq --arg severity "$2" '[.[] | select(startswith($severity + " "))] | length' "$1"; }
 
-          serious_vulnerabilities results/env-prod-*.json > production.json
-          serious_vulnerabilities results/master-*.json > master.json
+          serious_vulnerabilities scan-results/env-prod-*.json > production.json
+          serious_vulnerabilities scan-results/master-*.json > master.json
           COMMITS_NOT_IN_PRODUCTION=$(gh api "repos/$GITHUB_REPOSITORY/compare/$PRODUCTION_COMMIT...master" --jq .ahead_by)
 
           {
