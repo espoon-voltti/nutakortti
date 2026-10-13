@@ -1,0 +1,141 @@
+name: Production vulnerability scan
+on:
+  schedule:
+    - cron: "0 5 * * 1" # At 05:00 on Monday
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/production-scan.yml
+
+# Findings go only to Slack and, in private repositories, to the run summary:
+# run pages and logs of a public repository are visible to anyone.
+
+env:
+  AWS_REGION: eu-west-1
+  PROJECT: Nutakortti
+  IMAGES: nutakortti/service nutakortti/proxy
+  LOCKFILES_DEPLOYED_OUTSIDE_IMAGES: "frontend admin-frontend"
+  PRODUCTION_ENVIRONMENT: prod
+  TRIVY: aquasec/trivy:0.75.0
+
+permissions:
+  id-token: write
+  contents: read
+  deployments: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          role-duration-seconds: 1200
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2.1.7
+        with:
+          mask-password: 'true'
+
+      - name: Scan production and master images
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          mkdir results
+          for image in $IMAGES; do
+            for tag in env-prod master; do
+              docker pull --quiet "$REGISTRY/$image:$tag"
+              docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/work" -w /work "$TRIVY" \
+                image --scanners vuln --ignore-unfixed --no-progress --quiet --format json \
+                --output "results/$tag-${image//\//-}.json" "$REGISTRY/$image:$tag"
+            done
+          done
+
+      - name: Find production commit
+        id: production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          commit=$(jq -r '.Metadata.ImageConfig.config.Labels["fi.espoo.commit"] // empty' results/env-prod-*.json | sort -u | head -1)
+          if [ -z "$commit" ]; then
+            commit=$(gh api graphql -f owner="${GITHUB_REPOSITORY%/*}" -f name="${GITHUB_REPOSITORY#*/}" -f environment="$PRODUCTION_ENVIRONMENT" -f query='
+              query($owner: String!, $name: String!, $environment: String!) {
+                repository(owner: $owner, name: $name) {
+                  deployments(environments: [$environment], last: 50) { nodes { commitOid latestStatus { state createdAt } } }
+                }
+              }' --jq '[.data.repository.deployments.nodes[] | select(.latestStatus.state == "SUCCESS")] | max_by(.latestStatus.createdAt) | .commitOid')
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Scan production and master lockfiles deployed outside images
+        if: env.LOCKFILES_DEPLOYED_OUTSIDE_IMAGES != ''
+        env:
+          PRODUCTION_COMMIT: ${{ steps.production.outputs.commit }}
+        run: |
+          for tag in env-prod master; do
+            ref=$([ "$tag" = env-prod ] && echo "$PRODUCTION_COMMIT" || echo master)
+            git fetch --quiet --depth 1 origin "$ref"
+            rm -rf "sources-$tag" && mkdir "sources-$tag"
+            for directory in $LOCKFILES_DEPLOYED_OUTSIDE_IMAGES; do
+              git archive FETCH_HEAD "$directory" | tar -x -C "sources-$tag"
+              docker run --rm -v "$PWD:/work" -w /work "$TRIVY" \
+                fs --scanners vuln --ignore-unfixed --quiet --format json \
+                --output "results/$tag-lockfile-${directory//\//-}.json" "sources-$tag/$directory"
+            done
+          done
+
+      - name: Compose Slack message
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCTION_COMMIT: ${{ steps.production.outputs.commit }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          serious_vulnerabilities() {
+            jq -s '[.[] | .Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" or .Severity == "HIGH")
+                    | "\(.Severity) \(.VulnerabilityID) \(.PkgName)"] | unique' "$@"
+          }
+          count() { jq --arg severity "$2" '[.[] | select(startswith($severity + " "))] | length' "$1"; }
+
+          serious_vulnerabilities results/env-prod-*.json > production.json
+          serious_vulnerabilities results/master-*.json > master.json
+          COMMITS_NOT_IN_PRODUCTION=$(gh api "repos/$GITHUB_REPOSITORY/compare/$PRODUCTION_COMMIT...master" --jq .ahead_by)
+
+          {
+            echo "*$PROJECT riippuvuuksien CVE skannaus*"
+            echo "tuotanto: critical $(count production.json CRITICAL), high $(count production.json HIGH)"
+            echo "master: critical $(count master.json CRITICAL), high $(count master.json HIGH) ($COMMITS_NOT_IN_PRODUCTION committia edellä)"
+            echo "<$RUN_URL|ajo>"
+          } > message.txt
+          jq -n --rawfile text message.txt '{text: $text}' > slack-payload.json
+
+      - name: Summarize findings
+        if: github.event.repository.private
+        env:
+          PRODUCTION_COMMIT: ${{ steps.production.outputs.commit }}
+        run: |
+          {
+            cat message.txt
+            echo
+            echo "Production commit $PRODUCTION_COMMIT"
+            echo
+            echo "| Severity | Vulnerability | Package | Production | Master |"
+            echo "|---|---|---|---|---|"
+            jq -r -n --slurpfile p production.json --slurpfile m master.json '
+              ($p[0] + $m[0] | unique)[]
+              | . as $key | split(" ")
+              | "| \(.[0]) | \(.[1]) | \(.[2]) | \(if ($p[0] | index($key)) then "x" else "" end) | \(if ($m[0] | index($key)) then "x" else "" end) |"' \
+              | sort -t'|' -k2,2 -k4,4
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Send to Slack
+        if: github.event_name != 'pull_request'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.PRODUCTION_SCAN_SLACK_WEBHOOK_URL }}
+        run: |
+          curl --silent --show-error --fail --output /dev/null \
+            -H 'Content-Type: application/json' --data @slack-payload.json "$SLACK_WEBHOOK_URL"
