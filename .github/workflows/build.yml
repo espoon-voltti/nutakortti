@@ -180,9 +180,15 @@ jobs:
           set -euo pipefail
           for image in service proxy; do
             src="ghcr.io/espoon-voltti/nutakortti/${image}:${SHA}"
-            dst="${ECR}/nutakortti/${image}:${SHA}"
-            echo "Copying ${src} -> ${dst}"
-            docker buildx imagetools create --prefer-index=false --tag "${dst}" "${src}"
+            dst="${ECR}/nutakortti/${image}"
+            tags=(--tag "${dst}:${SHA}")
+            # The production scan compares production with :master, so only a master build may write
+            # it. Both tags go in one call, so the layers are copied once.
+            if [ "${GITHUB_REF}" = "refs/heads/master" ]; then
+              tags+=(--tag "${dst}:master")
+            fi
+            echo "Copying ${src} -> ${dst}:${SHA}"
+            docker buildx imagetools create --prefer-index=false "${tags[@]}" "${src}"
           done
 
   install-frontend:
