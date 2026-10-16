@@ -18,7 +18,11 @@ export const translations: Translations = {
   logout: {
     title: 'Nuori Espoo medlemkortansökan',
     heading: 'Tack!',
-    message: 'Du har nu loggat ut. Tack för att du använde tjänsten!'
+    message: 'Du har nu loggat ut. Tack för att du använde tjänsten!',
+    suomifiFailed: {
+      heading: 'Utloggningen från Suomi.fi-identifikationen lyckades inte',
+      message: 'Du har loggat ut från den här tjänsten, men Suomi.fi-identifikationen bekräftade inte utloggningen. Stäng alla webbläsarfönster så att också din Suomi.fi-session avslutas. Gör det genast om du använder en delad enhet.'
+    }
   },
   parentRedirect: {
     title: 'Ansökning om Nuori Espoo medlemkort',

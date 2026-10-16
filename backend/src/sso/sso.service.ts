@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 import * as saml2 from 'saml2-js';
 import * as fs from 'fs';
 import * as url from 'url';
-import { SAMLHelper } from './samlhelper';
+import { LogoutStatus, SAMLHelper } from './samlhelper';
 import { AcsDto, SecurityContextDto } from '../authentication/dto';
 import { AuthenticationService } from '../authentication/authentication.service';
 
@@ -38,12 +38,26 @@ function spCertificate(certSelection: string): string {
     : '';
 }
 
+const TEST_IDP_ENTITY_ID = 'https://testi.apro.tunnistus.fi/idp1';
+
+// Suomi.fi requires the single logout request to carry the IdP's entityID as
+// the NameQualifier of the NameID. The test and production IdPs have different
+// entityIDs, so production must get it from the environment (nutakortti-infra):
+// the test default would make Suomi.fi reject every production logout.
+function suomifiIdpEntityId(cert_selection: string): string {
+  if (process.env.IDP_ENTITY_ID) {
+    return process.env.IDP_ENTITY_ID;
+  }
+  return cert_selection === 'prod' ? '' : TEST_IDP_ENTITY_ID;
+}
+
 @Injectable()
 export class SsoService {
   private readonly entity_id: string;
+  private readonly idp_entity_id: string;
   private readonly sp: saml2.ServiceProvider;
   private readonly idp: saml2.IdentityProvider;
-  private readonly samlHelper;
+  private readonly samlHelper: SAMLHelper;
   private readonly frontend_base_url: string;
   private readonly logger = new Logger('SSO Service');
 
@@ -94,10 +108,29 @@ export class SsoService {
       );
     }
 
+    this.idp_entity_id = suomifiIdpEntityId(cert_selection);
+    if (!this.idp_entity_id) {
+      this.logger.error(
+        'Suomi.fi logout configuration error: IDP_ENTITY_ID is not set and CERT_SELECTION=prod has no default; Suomi.fi logout will fail until it is set',
+      );
+    }
+
     this.samlHelper = new SAMLHelper(
       sp_options.private_key,
       idp_options.sso_logout_url,
+      { idp_entity_id: this.idp_entity_id, sp_entity_id: this.entity_id },
     );
+  }
+
+  // The page that tells the user the service session has ended.
+  private logoutDonePageUrl(): string {
+    return `${this.frontend_base_url}/uloskirjaus`;
+  }
+
+  // The page that tells the user the service session has ended but Suomi.fi
+  // single logout did not succeed, and what to do about it.
+  private logoutFailedPageUrl(): string {
+    return `${this.frontend_base_url}/uloskirjaus?virhe=suomifi`;
   }
 
   getLoginRequestUrl(res: Response) {
@@ -192,6 +225,17 @@ export class SsoService {
       return;
     }
 
+    // The frontend has already dropped the service session. Without the IdP
+    // entityID the logout request would be rejected, so send the user straight
+    // to the page that tells what to do.
+    if (!this.idp_entity_id) {
+      this.logger.error(
+        'Suomi.fi logout error: IDP_ENTITY_ID is not set, cannot create a logout request',
+      );
+      res.send({ url: this.logoutFailedPageUrl() });
+      return;
+    }
+
     const options = {
       name_id: sc_token.nameId,
       session_index: sc_token.sessionIndex,
@@ -245,15 +289,34 @@ export class SsoService {
         },
       );
     } else {
-      // Suomi.fi answers UnknownPrincipal once its own session has expired, which
-      // is the usual case by the time a user logs out. The user ends up logged out
-      // either way, so report it and redirect instead of failing the request.
-      if (!this.samlHelper.checkLogoutResponse(req.url)) {
-        this.logger.warn('Suomi.fi returned nonsuccessful logout status.');
-      }
-
-      res.redirect(`${this.frontend_base_url}/uloskirjaus`);
+      res.redirect(this.handleLogoutResponse(req.url));
     }
+  }
+
+  // The service session was already ended by the frontend before the Suomi.fi
+  // round trip, so the user always lands on a logged-out page. Only a Success
+  // status means the Suomi.fi session ended too; anything else must be visible
+  // to the user and alert on in the logs ("error" is what the log watcher matches).
+  private handleLogoutResponse(req_url: string): string {
+    let status: LogoutStatus;
+    try {
+      status = this.samlHelper.readLogoutStatus(req_url);
+    } catch (ex) {
+      this.logger.error(
+        'Suomi.fi logout error: logout response could not be read: ' +
+          ex.message,
+      );
+      return this.logoutFailedPageUrl();
+    }
+    if (!status.success) {
+      this.logger.error(
+        `Suomi.fi logout error: IdP rejected the logout request, status ${status.codes.join(' > ')}` +
+          (status.message ? ` (${status.message})` : ''),
+      );
+      return this.logoutFailedPageUrl();
+    }
+    this.logger.log('Suomi.fi logout succeeded.');
+    return this.logoutDonePageUrl();
   }
 
   private _getUserAttribute(

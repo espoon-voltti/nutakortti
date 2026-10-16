@@ -7,20 +7,47 @@ import * as xmlbuilder from 'xmlbuilder2';
 import * as XML from 'pixl-xml';
 import { assignIn } from 'lodash';
 
+export interface SAMLHelperOptions {
+  // entityID of the Suomi.fi IdP, from its metadata. Differs between the test
+  // and production environments.
+  idp_entity_id: string;
+  // Our own entityID as registered with Suomi.fi.
+  sp_entity_id: string;
+}
+
+export const SAML_STATUS_SUCCESS = 'urn:oasis:names:tc:SAML:2.0:status:Success';
+
+// The status of a LogoutResponse: the top-level StatusCode followed by any
+// nested ones (e.g. Requester > UnknownPrincipal) and the optional
+// StatusMessage. None of these contain personal data.
+export interface LogoutStatus {
+  success: boolean;
+  codes: string[];
+  message?: string;
+}
+
 export class SAMLHelper {
   private_key: string;
   sso_logout_url: string;
+  private readonly idp_entity_id: string;
+  private readonly sp_entity_id: string;
 
-  constructor(private_key: string, sso_logout_url: string) {
+  constructor(
+    private_key: string,
+    sso_logout_url: string,
+    options: SAMLHelperOptions,
+  ) {
     this.private_key = private_key;
     this.sso_logout_url = sso_logout_url;
+    this.idp_entity_id = options.idp_entity_id;
+    this.sp_entity_id = options.sp_entity_id;
   }
 
   /*
   According to Suomi.fi documentation, the NameID element should have the following three attributes:
 
     Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient" (a constant)
-    NameQualifier="https://testi.apro.tunnistus.fi/idp1" (the IdP)
+    NameQualifier=(the IdP entityID, e.g. "https://testi.apro.tunnistus.fi/idp1" in the test environment)
     SPNameQualifier=(Espoo EntityID)
 
   If these attributes are not provided, the StatusCode in the Response SAML will be erroneous.
@@ -49,11 +76,8 @@ export class SAMLHelper {
           'saml:Issuer': xml_json['saml:Issuer'],
           'saml:NameID': {
             '@Format': 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
-            '@NameQualifier':
-              process.env.IDP_ENTITY_ID ||
-              'https://testi.apro.tunnistus.fi/idp1',
-            '@SPNameQualifier':
-              process.env.SP_ENTITY_ID || 'https://nutakortti-test.vantaa.fi',
+            '@NameQualifier': this.idp_entity_id,
+            '@SPNameQualifier': this.sp_entity_id,
             '#text': xml_json['saml:NameID'],
           },
           'samlp:SessionIndex': xml_json['samlp:SessionIndex'],
@@ -70,24 +94,42 @@ export class SAMLHelper {
     return url.format(new_logout_url);
   }
 
-  checkLogoutResponse(req_url: string): boolean {
-    try {
-      const response = url.parse(req_url, true).query.SAMLResponse;
-      const deflated = Buffer.from(response.toString(), 'base64');
-      const xml_string = zlib.inflateRawSync(deflated).toString();
-      const xml_json = XML.parse(xml_string, { preserveAttributes: true });
-
-      // The status is in an XML element attribute like this:
-      // <saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />
-      const status_value =
-        xml_json['saml2p:Status']['saml2p:StatusCode']._Attribs.Value;
-      const val_array = status_value.split(':');
-      if (val_array[val_array.length - 1] === 'Success') {
-        return true;
-      }
-    } catch {
-      return false;
+  // Reads the status of the LogoutResponse the IdP redirected the browser back with.
+  // Throws if the SAMLResponse parameter is missing or does not parse; a
+  // non-success status is a normal return value so that the caller can log it.
+  readLogoutStatus(req_url: string): LogoutStatus {
+    const response = url.parse(req_url, true).query.SAMLResponse;
+    if (!response) {
+      throw new Error('SAMLResponse parameter missing from logout redirect');
     }
+    const deflated = Buffer.from(response.toString(), 'base64');
+    const xml_string = zlib.inflateRawSync(deflated).toString();
+    const logout_response = XML.parse(xml_string, { preserveAttributes: true });
+
+    // The status is nested like this (Suomi.fi uses the saml2p prefix, the
+    // SAML specification does not promise any particular prefix):
+    // <saml2p:Status>
+    //   <saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Requester">
+    //     <saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal"/>
+    //   </saml2p:StatusCode>
+    //   <saml2p:StatusMessage>An error occurred.</saml2p:StatusMessage>
+    // </saml2p:Status>
+    const status = childByLocalName(logout_response, 'Status');
+    const codes: string[] = [];
+    let status_code = childByLocalName(status, 'StatusCode');
+    while (status_code && status_code._Attribs && status_code._Attribs.Value) {
+      codes.push(status_code._Attribs.Value);
+      status_code = childByLocalName(status_code, 'StatusCode');
+    }
+    if (codes.length === 0) {
+      throw new Error('LogoutResponse has no StatusCode');
+    }
+    const message = childByLocalName(status, 'StatusMessage');
+    return {
+      success: codes[0] === SAML_STATUS_SUCCESS,
+      codes,
+      ...(typeof message === 'string' ? { message } : {}),
+    };
   }
 
   getSAMLRequestId(saml_request: string): string {
@@ -119,4 +161,15 @@ export class SAMLHelper {
     samlQueryString.Signature = sign.sign(this.private_key, 'base64');
     return samlQueryString;
   }
+}
+
+// pixl-xml keeps the namespace prefix in the key ("saml2p:Status").
+function childByLocalName(node: any, local_name: string): any {
+  if (!node || typeof node !== 'object') {
+    return undefined;
+  }
+  const key = Object.keys(node).find(
+    (k) => k === local_name || k.endsWith(':' + local_name),
+  );
+  return key === undefined ? undefined : node[key];
 }

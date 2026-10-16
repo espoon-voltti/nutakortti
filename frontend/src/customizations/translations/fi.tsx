@@ -18,7 +18,11 @@ export const translations: Translations = {
   logout: {
     title: 'Nuori Espoo jäsenkortin hakeminen',
     heading: 'Kiitos!',
-    message: 'Olet nyt kirjautunut ulos. Kiitos palvelun käytöstä!'
+    message: 'Olet nyt kirjautunut ulos. Kiitos palvelun käytöstä!',
+    suomifiFailed: {
+      heading: 'Uloskirjautuminen Suomi.fi-tunnistuksesta ei onnistunut',
+      message: 'Olet kirjautunut ulos tästä palvelusta, mutta Suomi.fi-tunnistus ei vahvistanut uloskirjautumista. Sulje kaikki selaimen ikkunat, jotta myös Suomi.fi-istuntosi päättyy. Jos käytät yhteistä laitetta, tee se heti.'
+    }
   },
   parentRedirect: {
     title: 'Nuori Espoo jäsenkortin hakeminen',

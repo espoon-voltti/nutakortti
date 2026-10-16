@@ -18,7 +18,11 @@ export const translations: Translations = {
   logout: {
     title: 'Nuori Espoo membership card application',
     heading: 'Thank you!',
-    message: 'You have now logged out. Thank you for using this service!'
+    message: 'You have now logged out. Thank you for using this service!',
+    suomifiFailed: {
+      heading: 'Logging out of Suomi.fi e-Identification did not succeed',
+      message: 'You have been logged out of this service, but Suomi.fi e-Identification did not confirm the logout. Close all browser windows so that your Suomi.fi session ends as well. Do this right away if you are using a shared device.'
+    }
   },
   parentRedirect: {
     title: 'Applying for a Nuori Espoo membership card',
