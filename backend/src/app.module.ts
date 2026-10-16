@@ -26,6 +26,7 @@ import { RoutersMiddleware } from './middleware/routers.middleware';
 import { ConfigModule } from '@nestjs/config';
 import { SsoModule } from './sso/sso.module';
 import { LoggerModule } from 'nestjs-pino';
+import { pinoLoggerOptions } from './logging';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdSsoModule } from './ad-sso/ad-sso.module';
 import { AdSsoController } from './ad-sso/ad-sso.controller';
@@ -64,7 +65,7 @@ const redisClientProvider = {
     SsoModule,
     ScheduleModule.forRoot(),
     ConfigModule.forRoot(),
-    LoggerModule.forRoot(),
+    LoggerModule.forRoot({ pinoHttp: pinoLoggerOptions }),
   ],
   providers: [AppService, redisClientProvider],
   controllers: [
