@@ -1,4 +1,7 @@
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as zlib from 'zlib';
 import { SAMLHelper } from './samlhelper';
 
@@ -141,5 +144,69 @@ describe('SAMLHelper.fixMissingXMLAttributes', () => {
       'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256',
     );
     expect(query.get('Signature')).toBeTruthy();
+  });
+});
+
+// pixl-xml reads the file named by any string that does not start with '<', so
+// a SAMLResponse that inflates to a path must be rejected before parsing. The
+// files here hold valid messages, so reading them would change the result.
+describe('SAMLHelper redirect message decoding', () => {
+  const helper = new SAMLHelper('', 'https://idp.invalid/SLO', options);
+  let dir: string;
+  let responseFile: string;
+  let requestFile: string;
+
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'samlhelper-'));
+    responseFile = path.join(dir, 'response.xml');
+    fs.writeFileSync(responseFile, success);
+    requestFile = path.join(dir, 'request.xml');
+    fs.writeFileSync(
+      requestFile,
+      '<samlp:LogoutRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_from_disk"/>',
+    );
+  });
+
+  afterAll(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  function encode(content: string): string {
+    return zlib.deflateRawSync(Buffer.from(content)).toString('base64');
+  }
+
+  it('does not read a file named by the SAMLResponse', () => {
+    expect(() => helper.readLogoutStatus(sloRedirectUrl(responseFile))).toThrow(
+      'SAML message is not XML',
+    );
+  });
+
+  it('does not read a file named by the SAMLRequest', () => {
+    expect(helper.getSAMLRequestId(encode(requestFile))).toBe('');
+    expect(helper.getSAMLRequestId(encode('  ' + requestFile))).toBe('');
+  });
+
+  it('still reads the ID of a SAMLRequest', () => {
+    expect(
+      helper.getSAMLRequestId(encode(fs.readFileSync(requestFile, 'utf8'))),
+    ).toBe('_from_disk');
+  });
+
+  it('accepts whitespace before the XML', () => {
+    expect(helper.readLogoutStatus(sloRedirectUrl('\n  ' + success))).toEqual({
+      success: true,
+      codes: ['urn:oasis:names:tc:SAML:2.0:status:Success'],
+    });
+  });
+
+  it('refuses to inflate an oversized message', () => {
+    const oversized = success.replace(
+      '<saml2p:Status>',
+      `<!--${' '.repeat(300 * 1024)}--><saml2p:Status>`,
+    );
+    expect(() => helper.readLogoutStatus(sloRedirectUrl(oversized))).toThrow(
+      'Cannot create a Buffer larger than',
+    );
+    expect(helper.getSAMLRequestId(encode(oversized))).toBe('');
   });
 });

@@ -60,9 +60,7 @@ export class SAMLHelper {
       .parse(decodeURIComponent(logout_url), true)
       .query.SAMLRequest.toString()
       .replace(/ /g, '+');
-    const deflated = Buffer.from(old_saml_request, 'base64');
-    const xml_string = zlib.inflateRawSync(deflated).toString();
-    const xml_json = XML.parse(xml_string, { preserveAttributes: true });
+    const xml_json = decodeRedirectMessage(old_saml_request);
 
     const fixed_xml = xmlbuilder
       .create({
@@ -102,9 +100,7 @@ export class SAMLHelper {
     if (!response) {
       throw new Error('SAMLResponse parameter missing from logout redirect');
     }
-    const deflated = Buffer.from(response.toString(), 'base64');
-    const xml_string = zlib.inflateRawSync(deflated).toString();
-    const logout_response = XML.parse(xml_string, { preserveAttributes: true });
+    const logout_response = decodeRedirectMessage(response.toString());
 
     // The status is nested like this (Suomi.fi uses the saml2p prefix, the
     // SAML specification does not promise any particular prefix):
@@ -135,9 +131,7 @@ export class SAMLHelper {
   getSAMLRequestId(saml_request: string): string {
     let id = '';
     try {
-      const deflated = Buffer.from(saml_request, 'base64');
-      const xml_string = zlib.inflateRawSync(deflated).toString();
-      const xml_json = XML.parse(xml_string, { preserveAttributes: true });
+      const xml_json = decodeRedirectMessage(saml_request);
       id = xml_json._Attribs.ID;
     } catch {
       // Fall through
@@ -161,6 +155,26 @@ export class SAMLHelper {
     samlQueryString.Signature = sign.sign(this.private_key, 'base64');
     return samlQueryString;
   }
+}
+
+// Upper limit for an inflated redirect-binding message. Real LogoutRequests and
+// LogoutResponses are a few kilobytes; the limit keeps a small request from
+// inflating into megabytes and blocking the event loop.
+const MAX_INFLATED_MESSAGE_BYTES = 256 * 1024;
+
+// Decodes a SAML message sent with the HTTP-Redirect binding: base64, raw
+// DEFLATE, XML. Throws if the message is too large or is not XML.
+function decodeRedirectMessage(encoded: string): any {
+  const deflated = Buffer.from(encoded, 'base64');
+  const xml_string = zlib
+    .inflateRawSync(deflated, { maxOutputLength: MAX_INFLATED_MESSAGE_BYTES })
+    .toString();
+  // pixl-xml treats any string that does not start with '<' as a file path
+  // and reads that file synchronously, so it must never see anything else.
+  if (!/^\s*</.test(xml_string)) {
+    throw new Error('SAML message is not XML');
+  }
+  return XML.parse(xml_string, { preserveAttributes: true });
 }
 
 // pixl-xml keeps the namespace prefix in the key ("saml2p:Status").
