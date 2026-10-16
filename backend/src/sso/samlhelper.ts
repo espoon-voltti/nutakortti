@@ -16,6 +16,7 @@ export interface SAMLHelperOptions {
 }
 
 export const SAML_STATUS_SUCCESS = 'urn:oasis:names:tc:SAML:2.0:status:Success';
+export const SAML_STATUS_UNKNOWN_PRINCIPAL = 'urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal';
 
 // The status of a LogoutResponse: the top-level StatusCode followed by any
 // nested ones (e.g. Requester > UnknownPrincipal) and the optional

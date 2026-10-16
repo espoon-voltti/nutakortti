@@ -122,7 +122,7 @@ describe('SsoService', () => {
       expect(logger.error).not.toHaveBeenCalled();
     });
 
-    it('redirects to the failed-logout page and logs the status chain as an error when Suomi.fi rejects the logout', () => {
+    it('redirects to the logged-out page and logs a warning when Suomi.fi has no session to end (Requester > UnknownPrincipal)', () => {
       const { service, logger } = createService({ CERT_SELECTION: 'test' });
       const res = mockResponse();
 
@@ -138,13 +138,84 @@ describe('SsoService', () => {
         res,
       );
 
+      expect(res.redirect).toHaveBeenCalledWith(`${frontend}/uloskirjaus`);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'status urn:oasis:names:tc:SAML:2.0:status:Requester > urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal ' +
+            '(An error occurred.)',
+        ),
+      );
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it('redirects to the failed-logout page and logs the status chain as an error when Suomi.fi rejects the logout for another reason', () => {
+      const { service, logger } = createService({ CERT_SELECTION: 'test' });
+      const res = mockResponse();
+
+      service.handleLogout(
+        sloRequest(
+          logoutResponse(
+            '<saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Responder">' +
+              '<saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:PartialLogout"/>' +
+              '</saml2p:StatusCode>' +
+              '<saml2p:StatusMessage>An error occurred.</saml2p:StatusMessage>',
+          ),
+        ),
+        res,
+      );
+
       expect(res.redirect).toHaveBeenCalledWith(
         `${frontend}/uloskirjaus?virhe=suomifi`,
       );
       expect(logger.error).toHaveBeenCalledWith(
         'Suomi.fi logout error: IdP rejected the logout request, status ' +
-          'urn:oasis:names:tc:SAML:2.0:status:Requester > urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal ' +
+          'urn:oasis:names:tc:SAML:2.0:status:Responder > urn:oasis:names:tc:SAML:2.0:status:PartialLogout ' +
           '(An error occurred.)',
+      );
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('redirects to the failed-logout page and logs an error for a Requester status without UnknownPrincipal', () => {
+      const { service, logger } = createService({ CERT_SELECTION: 'test' });
+      const res = mockResponse();
+
+      service.handleLogout(
+        sloRequest(
+          logoutResponse(
+            '<saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Requester">' +
+              '<saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:RequestDenied"/>' +
+              '</saml2p:StatusCode>',
+          ),
+        ),
+        res,
+      );
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        `${frontend}/uloskirjaus?virhe=suomifi`,
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        'Suomi.fi logout error: IdP rejected the logout request, status ' +
+          'urn:oasis:names:tc:SAML:2.0:status:Requester > urn:oasis:names:tc:SAML:2.0:status:RequestDenied',
+      );
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('redirects to the failed-logout page and logs an error when the SAMLResponse does not parse', () => {
+      const { service, logger } = createService({ CERT_SELECTION: 'test' });
+      const res = mockResponse();
+
+      service.handleLogout(
+        { url: '/api/slo?SAMLResponse=bm90LWRlZmxhdGVk' } as Request,
+        res,
+      );
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        `${frontend}/uloskirjaus?virhe=suomifi`,
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Suomi.fi logout error: logout response could not be read',
+        ),
       );
     });
 

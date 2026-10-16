@@ -5,9 +5,15 @@ import { Request, Response } from 'express';
 import * as saml2 from 'saml2-js';
 import * as fs from 'fs';
 import * as url from 'url';
-import { LogoutStatus, SAMLHelper } from './samlhelper';
+import {
+  LogoutStatus,
+  SAMLHelper,
+  SAML_STATUS_UNKNOWN_PRINCIPAL,
+} from './samlhelper';
 import { AcsDto, SecurityContextDto } from '../authentication/dto';
 import { AuthenticationService } from '../authentication/authentication.service';
+
+const SAML_STATUS_REQUESTER = 'urn:oasis:names:tc:SAML:2.0:status:Requester';
 
 // Read SFI IDP certs from SUOMIFI_IDP_CERT_<year> env vars (injected from SSM;
 // the year scheme makes IdP key rollover an infra-only change).
@@ -294,9 +300,23 @@ export class SsoService {
   }
 
   // The service session was already ended by the frontend before the Suomi.fi
-  // round trip, so the user always lands on a logged-out page. Only a Success
-  // status means the Suomi.fi session ended too; anything else must be visible
-  // to the user and alert on in the logs ("error" is what the log watcher matches).
+  // round trip, so the user always lands on a logged-out page.
+  //
+  // Success means the Suomi.fi session ended too.
+  //
+  // Requester > UnknownPrincipal is how Suomi.fi answers when it has no
+  // single-login session for the user any more, and that is routine: Suomi.fi
+  // ends its SSO session after about 32 minutes, while our security context is
+  // valid for 3600 s, so a user logging out 32-60 minutes after login still
+  // sends a logout request; and eIDAS logins never leave a Suomi.fi session to
+  // end at all. There is nothing left to log out of, so this is the normal
+  // logged-out outcome. A NameQualifier that does not match the IdP entityID
+  // produces exactly the same answer, which is why it is still logged as a
+  // warning; that misconfiguration is checked separately at startup
+  // (IDP_ENTITY_ID in the constructor).
+  //
+  // Any other status, or a response that cannot be read, means the Suomi.fi
+  // session may still be alive: the user is told so and it is logged as an error.
   private handleLogoutResponse(req_url: string): string {
     let status: LogoutStatus;
     try {
@@ -308,15 +328,26 @@ export class SsoService {
       );
       return this.logoutFailedPageUrl();
     }
-    if (!status.success) {
-      this.logger.error(
-        `Suomi.fi logout error: IdP rejected the logout request, status ${status.codes.join(' > ')}` +
-          (status.message ? ` (${status.message})` : ''),
-      );
-      return this.logoutFailedPageUrl();
+    const statusText =
+      status.codes.join(' > ') + (status.message ? ` (${status.message})` : '');
+    if (status.success) {
+      this.logger.log('Suomi.fi logout succeeded.');
+      return this.logoutDonePageUrl();
     }
-    this.logger.log('Suomi.fi logout succeeded.');
-    return this.logoutDonePageUrl();
+    if (
+      status.codes[0] === SAML_STATUS_REQUESTER &&
+      status.codes.slice(1).includes(SAML_STATUS_UNKNOWN_PRINCIPAL)
+    ) {
+      this.logger.warn(
+        `Suomi.fi had no session to end (expired or eIDAS login), status ${statusText}. ` +
+          'A wrong NameQualifier (IdP entityID) would produce the same status.',
+      );
+      return this.logoutDonePageUrl();
+    }
+    this.logger.error(
+      `Suomi.fi logout error: IdP rejected the logout request, status ${statusText}`,
+    );
+    return this.logoutFailedPageUrl();
   }
 
   private _getUserAttribute(
