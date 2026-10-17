@@ -5,7 +5,7 @@
   "dependencies": {
     "@types/jest": "30.0.0",
     "@types/lodash": "4.17.26",
-    "@types/node": "24.19.1",
+    "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/react-measure": "2.0.12",
