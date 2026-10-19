@@ -1,4 +1,4 @@
-FROM node:24.21.0-trixie-slim AS build
+FROM node:24.22.0-trixie-slim AS build
 
 ARG CACHE_BUST=none
 
@@ -23,7 +23,7 @@ RUN npm ci && npm run build && npm prune --omit=dev
 # built static assets are carried over -- the frontend and admin-frontend build
 # toolchains and the backend devDependencies stay in the build stage and never
 # reach the shipped image.
-FROM node:24.21.0-trixie-slim
+FROM node:24.22.0-trixie-slim
 
 ENV TZ=Europe/Helsinki
 
