@@ -109,7 +109,7 @@ export class AdminService {
     if (!admin) {
       throw new BadRequestException(content.UserNotFound);
     }
-    this.adminRepo.remove(admin);
+    await this.adminRepo.remove(admin);
     return `${id} ${content.Deleted}`;
   }
 
