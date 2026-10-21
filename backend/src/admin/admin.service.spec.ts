@@ -153,7 +153,7 @@ describe('AdminService', () => {
       it('Should delete the user provided', async () => {
         await service.deleteAdmin(adminToDelete);
         const adminList = await service.listAllAdmins();
-        expect(adminList.findIndex(a => a.id === adminToDelete) < 0);
+        expect(adminList.findIndex(a => a.id === adminToDelete) < 0).toBeTruthy();
       });
   });
 });
