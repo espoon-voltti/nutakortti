@@ -1,6 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { join } from 'path';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as fs from 'fs';
 import cookieParser from 'cookie-parser';
@@ -53,9 +52,6 @@ async function bootstrap() {
   }
 
   app.enableCors();
-
-  app.useStaticAssets(join(__dirname, '..', 'public'));
-  app.useStaticAssets(join(__dirname, '..', 'public-admin'));
 
   app.use(cookieParser(process.env.COOKIE_SECRET));
 

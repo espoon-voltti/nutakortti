@@ -24,7 +24,7 @@ The app can be tested by using docker compose:
 docker-compose up -d
 ```
 
-Open http://localhost:3000/ (frontend) or http://localhost:3000/nuorisotyontekijat/ (admin-frontend) in your browser.
+Open http://localhost:8080/ (frontend) or http://localhost:8080/nuorisotyontekijat/ (admin-frontend) in your browser.
 
 ## Development
 
