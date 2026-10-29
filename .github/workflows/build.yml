@@ -53,28 +53,12 @@ jobs:
 
       - name: Build image
         uses: espoon-voltti/voltti-actions/docker-build-registry@master
-        id: build
         with:
           registry: ghcr.io/espoon-voltti
           name: nutakortti/service
           path: .
           build-args: |
             CACHE_BUST=${{ needs.cache-bust.outputs.cache-bust }}
-
-      - name: Extract frontend builds
-        run: |
-          docker create -ti --name instance "${{ steps.build.outputs.image }}" sh
-          mkdir -p ./build
-          docker cp instance:/backend/public ./build/public
-          docker cp instance:/backend/public-admin ./build/public-admin
-          docker rm -f instance
-
-      - name: Store frontend build
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          name: frontend
-          path: build
-          retention-days: 3
 
   proxy:
     runs-on: ubuntu-latest
@@ -191,51 +175,11 @@ jobs:
             docker buildx imagetools create --prefer-index=false "${tags[@]}" "${src}"
           done
 
-  install-frontend:
-    if: ${{ github.actor != 'dependabot[bot]' && !github.event.pull_request.head.repo.fork }}
-    needs:
-      - service
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write # assumes the AWS role via OIDC
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: # install-suffix because we want to install these without approval
-          - name: staging
-            gh: staging-install
-          - name: prod
-            gh: prod-install
-    environment:
-      name: ${{ matrix.environment.gh }}
-
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v8.0.2
-        with:
-          name: frontend
-          path: build/
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6.3.0
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ENVIRONMENT }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Install static files
-        run: |
-          aws s3 sync --exact-timestamps ./build/public-admin/ \
-            "s3://nutakortti-static-${{ matrix.environment.name }}/build/${{ github.sha }}/nuorisotyontekijat/"
-
-          aws s3 sync --exact-timestamps ./build/public/ \
-            "s3://nutakortti-static-${{ matrix.environment.name }}/build/${{ github.sha }}/"
-
   deploy:
     if: ${{ github.ref == 'refs/heads/master' }}
     needs:
       - test
       - ecr-push
-      - install-frontend
     runs-on: ubuntu-latest
     permissions:
       id-token: write # assumes the AWS roles via OIDC
@@ -281,26 +225,9 @@ jobs:
             --service "nutakortti-service" \
             --force-new-deployment
 
-      - name: Prepare frontend
-        run: |
-          aws s3 sync \
-            --exact-timestamps \
-            --exclude "*index.html" \
-            "s3://nutakortti-static-${{ matrix.environment }}/build/${{ github.sha }}/" \
-            "s3://nutakortti-static-${{ matrix.environment }}/frontend/"
-
       - name: Wait for stable
         run: |
           aws ecs wait services-stable --cluster="voltti-ecs-cluster-${{ matrix.environment }}-nuta" --services=nutakortti-service
-
-      - name: Install frontend
-        run: |
-          aws s3 sync \
-              --exact-timestamps \
-              --exclude '*' \
-              --include '*index.html' \
-              "s3://nutakortti-static-${{ matrix.environment }}/build/${{ github.sha }}/" \
-              "s3://nutakortti-static-${{ matrix.environment }}/frontend/"
 
       - if: failure()
         uses: espoon-voltti/voltti-actions/notify@master
