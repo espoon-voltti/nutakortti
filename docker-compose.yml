@@ -1,7 +1,7 @@
 services:
-  # The production-style entrypoint: proxies /api to the app and static
-  # assets from the staging S3 bucket. Opt in with --profile proxy;
-  # plain `docker-compose up` serves everything from the app on :3000.
+  # The production-style entrypoint: proxies everything to the app. Opt in
+  # with --profile proxy; plain `docker-compose up` serves everything from
+  # the app on :3000.
   nginx:
     build: nginx/
     profiles: [proxy]

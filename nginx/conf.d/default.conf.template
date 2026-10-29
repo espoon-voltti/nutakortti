@@ -94,30 +94,9 @@ server {
     return      200;
   }
 
-  set $staticUrl "http://nutakortti-static-{{ .Env.VOLTTI_ENV }}.s3-website-eu-west-1.amazonaws.com";
   set $serviceUrl "{{ .Env.SERVICE_URL }}";
 
   location / {
-    try_files @static @service;
-  }
-
-  location @static {
-    proxy_set_header        Authorization '';
-    proxy_hide_header       x-amz-id-2;
-    proxy_hide_header       x-amz-request-id;
-    proxy_hide_header       Set-Cookie;
-    proxy_ignore_headers    Set-Cookie;
-    proxy_redirect          off;
-
-    rewrite    /(.*) /frontend/$1 break;
-    proxy_pass $staticUrl;
-
-    proxy_intercept_errors  on;
-    error_page 403 = /404.html;
-    error_page 404 = /404.html;
-  }
-
-  location @service {
       proxy_http_version 1.1;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For "$http_x_forwarded_for, $realip_remote_addr";
