@@ -1,7 +1,5 @@
 import {
   Module,
-  NestModule,
-  MiddlewareConsumer,
   Logger,
   Inject,
   OnApplicationShutdown,
@@ -22,7 +20,6 @@ import { Admin } from './admin/entities';
 import { Junior } from './junior/entities';
 import { ClubModule } from './club/club.module';
 import { SmsModule } from './sms/sms.module';
-import { RoutersMiddleware } from './middleware/routers.middleware';
 import { ConfigModule } from '@nestjs/config';
 import { SsoModule } from './sso/sso.module';
 import { LoggerModule } from 'nestjs-pino';
@@ -76,11 +73,7 @@ const redisClientProvider = {
   ],
   exports: [redisClientProvider],
 })
-export class AppModule implements NestModule, OnApplicationShutdown {
-  configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RoutersMiddleware).forRoutes('*');
-  }
-
+export class AppModule implements OnApplicationShutdown {
   constructor(
     private readonly connection: DataSource,
     @Inject('REDIS_CLIENT') private readonly redisClient: redis.RedisClientType,

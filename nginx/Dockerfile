@@ -1,5 +1,24 @@
 ARG NGINX_VERSION=1.31.8
 
+FROM node:24.22.1-trixie-slim AS frontend
+
+ARG CACHE_BUST=none
+
+WORKDIR /frontend
+COPY ./frontend ./
+ENV REACT_APP_ENDPOINT=/api
+RUN npm ci && npm run build
+
+FROM node:24.22.1-trixie-slim AS admin-frontend
+
+ARG CACHE_BUST=none
+
+WORKDIR /admin-frontend
+COPY ./admin-frontend ./
+ENV VITE_ENDPOINT=/api
+ENV VITE_ADMIN_FRONTEND_URL=/nuorisotyontekijat
+RUN npm ci && npm uninstall rollup && npm install rollup && npm run build
+
 FROM nginx:${NGINX_VERSION}
 
 ARG GOMPLATE_VERSION=v3.11.2
@@ -13,8 +32,15 @@ RUN apt-get -y update \
  && apt-get -y dist-upgrade \
  && rm -rf /var/lib/apt/lists/*
 
-COPY conf.d/default.conf.template /etc/nginx/conf.d/default.conf.template
-COPY entrypoint.sh /
+# Both apps are built for the site root, so their files share one directory. The frontend is
+# copied last and wins where names collide (favicon, manifest); the admin app's index.html is
+# served from its own route by default.conf.template.
+COPY --from=admin-frontend /admin-frontend/dist /static
+COPY --from=frontend /frontend/build /static
+COPY --from=admin-frontend /admin-frontend/dist/index.html /static/nuorisotyontekijat/index.html
+
+COPY nginx/conf.d/default.conf.template /etc/nginx/conf.d/default.conf.template
+COPY nginx/entrypoint.sh /
 
 ENTRYPOINT ["/entrypoint.sh"]
 
