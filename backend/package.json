@@ -55,7 +55,7 @@
     "pixl-xml": "1.0.13",
     "redis": "6.3.1",
     "reflect-metadata": "0.2.2",
-    "rimraf": "6.1.3",
+    "rimraf": "6.1.4",
     "rxjs": "7.8.2",
     "saml2-js": "4.0.4",
     "swagger-ui-express": "5.0.1",
