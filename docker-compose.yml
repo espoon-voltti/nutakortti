@@ -1,10 +1,9 @@
 services:
-  # The production-style entrypoint: proxies everything to the app. Opt in
-  # with --profile proxy; plain `docker-compose up` serves everything from
-  # the app on :3000.
+  # Serves both frontends on :8080 and proxies /api to the app, as in production.
   nginx:
-    build: nginx/
-    profiles: [proxy]
+    build:
+      context: ./
+      dockerfile: nginx/Dockerfile
     ports:
       - '8080:8080'
     environment:
@@ -25,7 +24,7 @@ services:
       COOKIE_SECRET: 'verysecret'
       CRYPTO_SECRET_KEY: '01234567890123456789012345678901'
       API_BASE_URL: 'http://localhost:3000/'
-      FRONTEND_BASE_URL: 'http://localhost:3000'
+      FRONTEND_BASE_URL: 'http://localhost:8080'
       RDS_DB_NAME: 'nuta'
       RDS_HOSTNAME: 'db'
       RDS_PASSWORD: 'password'

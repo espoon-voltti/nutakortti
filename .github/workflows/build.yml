@@ -83,7 +83,8 @@ jobs:
         with:
           registry: ghcr.io/espoon-voltti
           name: nutakortti/proxy
-          path: ./nginx
+          path: .
+          dockerfile: nginx/Dockerfile
           build-args: |
             CACHE_BUST=${{ needs.cache-bust.outputs.cache-bust }}
             build=${{ github.run_number }}

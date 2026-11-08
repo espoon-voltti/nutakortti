@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository structure
 
-Monorepo with three separately-built apps bundled into one Docker image:
-- `backend/` — NestJS API server (port 3000), also statically serves the two frontends
+Monorepo with three separately-built apps in two Docker images (backend, and the nginx proxy that serves both frontends):
+- `backend/` — NestJS API server (port 3000)
 - `frontend/` — React + Redux-Saga app for youth users (port 3001 in dev)
 - `admin-frontend/` — React Admin + Vite app for youth workers (port 3002 in dev)
 
@@ -54,9 +54,9 @@ npm run build        # production bundle
 
 ## Architecture
 
-### Single-container deployment
+### Proxy and backend images
 
-The Dockerfile builds both React apps first (frontend → `backend/public/`, admin-frontend → `backend/public/nuorisotyontekijat/`), then builds the NestJS backend. At runtime a single Node process serves the API and both frontends. The docker-compose `app` service represents the whole stack.
+`nginx/Dockerfile` builds both React apps into the proxy image (`/static`, with the admin app's `index.html` under `/static/nuorisotyontekijat/`), and nginx serves them and proxies `/api` to the backend. The root `Dockerfile` builds only the NestJS backend. Both containers run in one ECS task. In docker-compose, `nginx` serves the frontends on :8080 and `app` the API on :3000.
 
 ### Dual authentication model
 
