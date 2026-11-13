@@ -89,6 +89,10 @@ export interface Translations {
     title: ReactNode
     heading: ReactNode
     message: ReactNode
+    suomifiFailed: {
+      heading: ReactNode
+      message: ReactNode
+    }
   }
   parentRedirect: {
     title: ReactNode
