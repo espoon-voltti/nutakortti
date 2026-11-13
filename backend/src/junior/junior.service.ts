@@ -275,7 +275,7 @@ export class JuniorService {
     async deleteJunior(id: string) {
         const junior = await this.getJunior(id);
         if (!junior) { throw new BadRequestException(content.UserNotFound); }
-        this.juniorRepo.remove(junior);
+        await this.juniorRepo.remove(junior);
         return `${id} ${content.Deleted}`;
     }
 
