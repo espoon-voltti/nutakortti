@@ -61,6 +61,13 @@
       allowedVersions: '<13',
     },
     {
+      // saml2-js > xmlbuilder2 2.4.1 calls js-yaml's safeLoad(), removed in v4.
+      // Its override (#576) must stay on 3.x; @nestjs/swagger's copy is unaffected.
+      matchPackageNames: ['js-yaml'],
+      matchCurrentVersion: '<4',
+      allowedVersions: '<4',
+    },
+    {
       // Automerge patch versions of all dependencies
       matchUpdateTypes: ['minor', 'patch'],
       automerge: true,
